@@ -32,6 +32,7 @@
 #pragma once
 
 #include <functional>
+#include <ranges>
 
 #include "NumCpp/Core/Types.hpp"
 
@@ -54,13 +55,12 @@ namespace nc::integrate
         const double width = (high - low) / static_cast<double>(n);
 
         double simpson_integral = 0.;
-        for (uint32 step = 0; step < n; ++step)
-        {
+        auto steps = std::views::iota(uint32{0}, n);
+        std::ranges::for_each(steps, [&](uint32 step) {
             const double x1 = low + static_cast<double>(step) * width;
             const double x2 = low + static_cast<double>(step + 1) * width;
-
             simpson_integral += (x2 - x1) / 6. * (f(x1) + 4. * f(0.5 * (x1 + x2)) + f(x2));
-        }
+        });
 
         return simpson_integral;
     }

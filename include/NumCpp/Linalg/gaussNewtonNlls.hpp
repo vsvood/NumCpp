@@ -33,6 +33,7 @@
 #include <functional>
 #include <type_traits>
 #include <utility>
+#include <ranges>
 
 #include "NumCpp/Core/Internal/Error.hpp"
 #include "NumCpp/Core/Internal/StaticAsserts.hpp"
@@ -94,22 +95,18 @@ namespace nc::linalg
         NdArray<double> jacobian(coordinatesShape.rows, sizeof...(Params));
 
         const auto colSlice = coordinates.cSlice();
+        auto meas_indices = std::views::iota(uint32{0}, coordinatesShape.rows);
         for (uint32 iteration = 1; iteration <= numIterations; ++iteration)
         {
-            for (uint32 measIdx = 0; measIdx < coordinatesShape.rows; ++measIdx)
-            {
+            std::ranges::for_each(meas_indices, [&](uint32 measIdx) {
                 const auto coordinate = coordinates(measIdx, colSlice);
-
-                residuals[measIdx] =
-                    static_cast<double>(measurements[measIdx]) - static_cast<double>(function(coordinate, beta));
-
-                for (uint32 paramIdx = 0; paramIdx < sizeof...(Params); ++paramIdx)
-                {
-                    const auto& derivative      = derivatives[paramIdx];
+                residuals[measIdx] = static_cast<double>(measurements[measIdx]) - static_cast<double>(function(coordinate, beta));
+                auto param_indices = std::views::iota(uint32{0}, static_cast<uint32>(sizeof...(Params)));
+                std::ranges::for_each(param_indices, [&](uint32 paramIdx) {
+                    const auto& derivative = derivatives[paramIdx];
                     jacobian(measIdx, paramIdx) = static_cast<double>(derivative(coordinate, beta));
-                }
-            }
-
+                });
+            });
             // perform the gauss-newton linear algebra
             const auto jacobianT             = jacobian.transpose();
             const auto jacobianPsuedoInverse = linalg::inv(jacobianT.dot(jacobian));
@@ -119,13 +116,10 @@ namespace nc::linalg
         }
 
         // calculate the final rms of the residuals
-        for (uint32 measIdx = 0; measIdx < coordinatesShape.rows; ++measIdx)
-        {
+        std::ranges::for_each(meas_indices, [&](uint32 measIdx) {
             const auto coordinate = coordinates(measIdx, colSlice);
-
-            residuals[measIdx] =
-                static_cast<double>(measurements[measIdx]) - static_cast<double>(function(coordinate, beta));
-        }
+            residuals[measIdx] = static_cast<double>(measurements[measIdx]) - static_cast<double>(function(coordinate, beta));
+        });
 
         return std::make_pair(beta.flatten(), rms(residuals).item());
     }

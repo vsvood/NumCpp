@@ -31,6 +31,7 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include <ranges>
 
 #include "NumCpp/Core/Internal/Error.hpp"
 #include "NumCpp/Core/Shape.hpp"
@@ -273,10 +274,10 @@ namespace nc
 
             NdArray<dtype> returnArray(1, sizeZ());
 
-            for (uint32 i = 0; i < sizeZ(); ++i)
-            {
+            auto indices = std::views::iota(uint32{0}, sizeZ());
+            std::ranges::for_each(indices, [&](uint32 i) {
                 returnArray[i] = cube_[i][inIndex];
-            }
+            });
 
             return returnArray;
         }
@@ -327,10 +328,10 @@ namespace nc
 
             NdArray<dtype> returnArray(1, sizeZ());
 
-            for (uint32 i = 0; i < sizeZ(); ++i)
-            {
+            auto indices = std::views::iota(uint32{0}, sizeZ());
+            std::ranges::for_each(indices, [&](uint32 i) {
                 returnArray[i] = cube_[i](inRow, inCol);
-            }
+            });
 
             return returnArray;
         }

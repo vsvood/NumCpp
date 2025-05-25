@@ -33,6 +33,7 @@
 #include "NumCpp/Filter/Boundaries/Boundary.hpp"
 #include "NumCpp/Functions/mean.hpp"
 #include "NumCpp/NdArray.hpp"
+#include <ranges>
 
 namespace nc::filter
 {
@@ -59,12 +60,11 @@ namespace nc::filter
         const uint32 boundarySize = inSize / 2; // integer division
         const uint32 endPoint     = boundarySize + inImageArray.size();
 
-        for (uint32 i = boundarySize; i < endPoint; ++i)
-        {
+        auto indices = std::views::iota(boundarySize, endPoint);
+        std::ranges::for_each(indices, [&](uint32 i) {
             NdArray<dtype> window = arrayWithBoundary[Slice(i - boundarySize, i + boundarySize + 1)];
-
             output[i - boundarySize] = mean(window).item();
-        }
+        });
 
         return output;
     }

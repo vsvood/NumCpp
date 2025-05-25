@@ -33,6 +33,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <ranges>
 
 #include "NumCpp/Core/DtypeInfo.hpp"
 #include "NumCpp/Core/Enums.hpp"
@@ -167,11 +168,11 @@ namespace nc::polynomial
 
             NdArray<dtype> derivativeCofficients(1, numCoefficients - 1);
 
+            auto indices = std::views::iota(uint32{1}, numCoefficients);
             uint32 counter = 0;
-            for (uint32 i = 1; i < numCoefficients; ++i)
-            {
+            std::ranges::for_each(indices, [&](uint32 i) {
                 derivativeCofficients[counter++] = coefficients_[i] * i;
-            }
+            });
 
             return Poly1d<dtype>(derivativeCofficients);
         }
