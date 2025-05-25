@@ -28,4 +28,5 @@
 #pragma once
 
 #include "NumCpp/NdArray/NdArrayCore.hpp"
+#include "NumCpp/NdArray/NdArrayIterators.hpp"
 #include "NumCpp/NdArray/NdArrayOperators.hpp"
