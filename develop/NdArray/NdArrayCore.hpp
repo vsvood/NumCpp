@@ -46,7 +46,7 @@
 #include <string>
 #include <type_traits>
 
-namespace nc_develop
+namespace nc
 {
     //================================================================================
     // Class Description:
@@ -683,4 +683,4 @@ namespace nc_develop
         strides_t        strides_{};
         shared_ptr       data_{ nullptr };
     };
-} // namespace nc_develop
+} // namespace nc

@@ -5,7 +5,7 @@
 
 #include "NumCpp/Core/Internal/TypeTraits.hpp"
 
-namespace nc_develop
+namespace nc
 {
     //============================================================================
     // Class Description:
@@ -137,4 +137,4 @@ namespace nc_develop
 
     template<typename ContainerType>
     inline constexpr bool is_conforming_container_v = is_conforming_container<ContainerType>::value;
-} // namespace nc_develop
+} // namespace nc

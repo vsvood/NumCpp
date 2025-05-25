@@ -31,7 +31,7 @@
 
 #include "NumCpp/Core/Types.hpp"
 
-namespace nc_develop
+namespace nc
 {
     //================================================================================
     // Class Description:
@@ -464,4 +464,4 @@ namespace nc_develop
             return const_cast<reference>(MyBase::operator[](offset)); // NOLINT(cppcoreguidelines-pro-type-const-cast)
         }
     };
-} // namespace nc_develop
+} // namespace nc

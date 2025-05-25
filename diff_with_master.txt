@@ -1,0 +1,2476 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9978628fe..0118ae017 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -20,7 +20,7 @@ if(NOT CMAKE_BUILD_TYPE)
+ endif()
+ 
+ if(NOT CMAKE_CXX_STANDARD)
+-    set(CMAKE_CXX_STANDARD 17)
++    set(CMAKE_CXX_STANDARD 20)
+ endif()
+ set(CMAKE_CXX_STANDARD_REQUIRED On)
+ message(STATUS "Compiling with C++ standard: ${CMAKE_CXX_STANDARD}")
+@@ -158,7 +158,7 @@ target_include_directories(${PROJECT_NAME} ${WARNING_GUARD} INTERFACE
+     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+ )
+ 
+-target_compile_features(${PROJECT_NAME} INTERFACE $<INSTALL_INTERFACE:cxx_std_17>)
++target_compile_features(${PROJECT_NAME} INTERFACE $<INSTALL_INTERFACE:cxx_std_20>)
+ 
+ if (BUILD_DOCS)
+     set(-Wno-dev)
+diff --git a/include/NumCpp/Core/Internal/Concepts.hpp b/include/NumCpp/Core/Internal/Concepts.hpp
+new file mode 100644
+index 000000000..94382f550
+--- /dev/null
++++ b/include/NumCpp/Core/Internal/Concepts.hpp
+@@ -0,0 +1,154 @@
++/// @file
++/// @author David Pilger <dpilger26@gmail.com>
++/// [GitHub Repository](https://github.com/dpilger26/NumCpp)
++///
++/// License
++/// Copyright 2018-2023 David Pilger
++///
++/// Permission is hereby granted, free of charge, to any person obtaining a copy of this
++/// software and associated documentation files(the "Software"), to deal in the Software
++/// without restriction, including without limitation the rights to use, copy, modify,
++/// merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
++/// permit persons to whom the Software is furnished to do so, subject to the following
++/// conditions :
++///
++/// The above copyright notice and this permission notice shall be included in all copies
++/// or substantial portions of the Software.
++///
++/// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
++/// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
++/// PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
++/// FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
++/// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++/// DEALINGS IN THE SOFTWARE.
++///
++/// Description
++/// Modern C++ concepts for type checking and constraints
++///
++#pragma once
++
++#include <concepts>
++#include <complex>
++#include <type_traits>
++
++namespace nc
++{
++    //============================================================================
++    // Concept Description:
++    /// Concept for checking if all types are arithmetic
++    ///
++    template<typename... Ts>
++    concept AllArithmetic = (std::is_arithmetic_v<Ts> && ...);
++
++    //============================================================================
++    // Concept Description:
++    /// Concept for checking if all types are the same as the first type
++    ///
++    template<typename T1, typename... Ts>
++    concept AllSame = (std::is_same_v<T1, Ts> && ...);
++
++    //============================================================================
++    // Concept Description:
++    /// Concept for checking if a type is a valid dtype for NdArray
++    ///
++    template<typename dtype>
++    concept ValidDtype = requires
++    {
++        requires std::is_default_constructible_v<dtype>;
++        requires std::is_nothrow_copy_constructible_v<dtype>;
++        requires std::is_nothrow_move_constructible_v<dtype>;
++        requires std::is_nothrow_copy_assignable_v<dtype>;
++        requires std::is_nothrow_move_assignable_v<dtype>;
++        requires std::is_nothrow_destructible_v<dtype>;
++        requires !std::is_void_v<dtype>;
++        requires !std::is_pointer_v<dtype>;
++        requires !std::is_array_v<dtype>;
++        requires !std::is_union_v<dtype>;
++        requires !std::is_function_v<dtype>;
++        requires !std::is_abstract_v<dtype>;
++    };
++
++    // Forward declare
++    template<typename dtype, class Allocator>
++    class NdArray;
++
++    //============================================================================
++    // Concept Description:
++    /// Concept for checking if a type is an NdArray of integral type (for index arrays)
++    ///
++    template<typename T>
++    concept NdArrayInt = requires {
++        typename T::value_type;
++        typename T::allocator_type;
++        requires std::is_integral_v<typename T::value_type>;
++        requires std::is_same_v<T, NdArray<typename T::value_type, typename T::allocator_type>>;
++    };
++
++    //============================================================================
++    // Concept Description:
++    /// Concept for checking if a type is an NdArray of signed integral type (for signed index arrays)
++    ///
++    template<typename T>
++    concept NdArraySignedInt = requires {
++        typename T::value_type;
++        typename T::allocator_type;
++        requires std::is_signed_v<typename T::value_type>;
++        requires std::is_integral_v<typename T::value_type>;
++        requires std::is_same_v<T, NdArray<typename T::value_type, typename T::allocator_type>>;
++    };
++
++    //============================================================================
++    // Concept Description:
++    /// Concept for checking if a type is std::complex<>
++    ///
++    template<typename T>
++    concept IsComplex = requires
++    {
++        requires std::is_same_v<T, std::complex<typename T::value_type>>;
++    };
++
++    //============================================================================
++    // Concept Description:
++    /// Concept for checking if one value is greater than another at compile time
++    ///
++    template<std::size_t Value1, std::size_t Value2>
++    concept GreaterThan = (Value1 > Value2);
++
++    //============================================================================
++    // Concept Description:
++    /// Concept for arithmetic types
++    template<typename T>
++    concept Arithmetic = std::is_arithmetic_v<T>;
++
++    /// Concept for integer types
++    template<typename T>
++    concept Integer = std::is_integral_v<T>;
++
++    /// Concept for unsigned integer types
++    template<typename T>
++    concept UnsignedInteger = std::is_integral_v<T> && std::is_unsigned_v<T>;
++
++    /// Concept for floating point types
++    template<typename T>
++    concept Float = std::is_floating_point_v<T>;
++
++    /// Concept for std::complex types
++    template<typename T>
++    concept Complex = requires { typename T::value_type; } && std::is_same_v<T, std::complex<typename T::value_type>>;
++
++    /// Concept for arithmetic or std::complex types
++    template<typename T>
++    concept ArithmeticOrComplex = Arithmetic<T> || Complex<T>;
++
++    // Aliases for deprecated STATIC_ASSERT_* macros as concepts
++    // Use these concepts instead of the macros
++
++    // ValidDtype concept is already defined as nc::ValidDtype
++    // Arithmetic concept is already defined as nc::Arithmetic
++    // Integer concept is already defined as nc::Integer
++    // UnsignedInteger concept is already defined as nc::UnsignedInteger
++    // Float concept is already defined as nc::Float
++    // Complex concept is already defined as nc::Complex
++    // ArithmeticOrComplex concept is already defined as nc::ArithmeticOrComplex
++
++} // namespace nc 
+\ No newline at end of file
+diff --git a/include/NumCpp/Core/Internal/StaticAsserts.hpp b/include/NumCpp/Core/Internal/StaticAsserts.hpp
+index be7b4d6a3..1c3179cfe 100644
+--- a/include/NumCpp/Core/Internal/StaticAsserts.hpp
++++ b/include/NumCpp/Core/Internal/StaticAsserts.hpp
+@@ -28,9 +28,10 @@
+ #pragma once
+ 
+ #include <type_traits>
+-
+ #include "NumCpp/Core/Internal/TypeTraits.hpp"
+ 
++// DEPRECATED: All STATIC_ASSERT_* macros are deprecated. Use concepts from @Concepts.hpp instead.
++
+ // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+ #define STATIC_ASSERT_VALID_DTYPE(dtype) \
+     static_assert(nc::is_valid_dtype_v<dtype>, "Template type is not a valid dtype for NdArray")
+diff --git a/include/NumCpp/Core/Internal/TypeTraits.hpp b/include/NumCpp/Core/Internal/TypeTraits.hpp
+index fe81cf92b..8d2fdeb37 100644
+--- a/include/NumCpp/Core/Internal/TypeTraits.hpp
++++ b/include/NumCpp/Core/Internal/TypeTraits.hpp
+@@ -153,13 +153,6 @@ namespace nc
+     template<typename T>
+     constexpr bool is_ndarray_int_v = is_ndarray_int<T>::value;
+ 
+-    //============================================================================
+-    // Class Description:
+-    /// is_ndarray_int
+-    ///
+-    template<typename T>
+-    using ndarray_int_concept = std::enable_if_t<is_ndarray_int_v<T>, int>;
+-
+     //============================================================================
+     // Class Description:
+     /// Template class for determining if type is std::complex<>
+diff --git a/include/NumCpp/Functions/arcsinh.hpp b/include/NumCpp/Functions/arcsinh.hpp
+index 009b36dec..c26a73f98 100644
+--- a/include/NumCpp/Functions/arcsinh.hpp
++++ b/include/NumCpp/Functions/arcsinh.hpp
+@@ -48,7 +48,7 @@ namespace nc
+     template<typename dtype>
+     auto arcsinh(dtype inValue) noexcept
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return std::asinh(inValue);
+     }
+diff --git a/include/NumCpp/Functions/around.hpp b/include/NumCpp/Functions/around.hpp
+index 796b697bc..f2c438ac9 100644
+--- a/include/NumCpp/Functions/around.hpp
++++ b/include/NumCpp/Functions/around.hpp
+@@ -44,6 +44,7 @@ namespace nc
+     template<typename dtype>
+     dtype around(dtype inValue, uint8 inNumDecimals = 0)
+     {
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+         NdArray<dtype> value = { inValue };
+         return value.round(inNumDecimals).item();
+     }
+@@ -61,6 +62,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> around(const NdArray<dtype>& inArray, uint8 inNumDecimals = 0)
+     {
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+         return inArray.round(inNumDecimals);
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/asarray.hpp b/include/NumCpp/Functions/asarray.hpp
+index 24f723f50..6bfd12520 100644
+--- a/include/NumCpp/Functions/asarray.hpp
++++ b/include/NumCpp/Functions/asarray.hpp
+@@ -38,7 +38,7 @@
+ #include <vector>
+ 
+ #include "NumCpp/Core/Enums.hpp"
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ #include "NumCpp/NdArray.hpp"
+ 
+ namespace nc
+@@ -53,7 +53,7 @@ namespace nc
+     /// @param inList
+     /// @return NdArray
+     ///
+-    template<typename dtype, std::enable_if_t<is_valid_dtype_v<dtype>, int> = 0>
++    template<ValidDtype dtype>
+     NdArray<dtype> asarray(std::initializer_list<dtype> inList)
+     {
+         return NdArray<dtype>(inList);
+@@ -86,7 +86,7 @@ namespace nc
+     ///                       act as a non-owning shell. Default Copy
+     /// @return NdArray
+     ///
+-    template<typename dtype, size_t ArraySize, std::enable_if_t<is_valid_dtype_v<dtype>, int> = 0>
++    template<ValidDtype dtype, size_t ArraySize>
+     NdArray<dtype> asarray(std::array<dtype, ArraySize>& inArray, PointerPolicy pointerPolicy = PointerPolicy::COPY)
+     {
+         return NdArray<dtype>(inArray, pointerPolicy);
+@@ -121,7 +121,7 @@ namespace nc
+     ///                       act as a non-owning shell. Default Copy
+     /// @return NdArray
+     ///
+-    template<typename dtype, std::enable_if_t<is_valid_dtype_v<dtype>, int> = 0>
++    template<ValidDtype dtype>
+     NdArray<dtype> asarray(std::vector<dtype>& inVector, PointerPolicy pointerPolicy = PointerPolicy::COPY)
+     {
+         return NdArray<dtype>(inVector, pointerPolicy);
+@@ -169,7 +169,7 @@ namespace nc
+     /// @param inDeque
+     /// @return NdArray
+     ///
+-    template<typename dtype, std::enable_if_t<is_valid_dtype_v<dtype>, int> = 0>
++    template<ValidDtype dtype>
+     NdArray<dtype> asarray(const std::deque<dtype>& inDeque)
+     {
+         return NdArray<dtype>(inDeque);
+@@ -297,9 +297,8 @@ namespace nc
+     ///                       act as a non-owning shell. Default Copy
+     /// @return NdArray
+     ///
+-    template<typename dtype,
+-             typename UIntType,
+-             std::enable_if_t<std::is_integral_v<UIntType> && !std::is_same_v<UIntType, bool>, int> = 0>
++    template<typename dtype, std::integral UIntType>
++    requires (!std::is_same_v<UIntType, bool>)
+     NdArray<dtype> asarray(dtype* ptr, UIntType size, PointerPolicy pointerPolicy = PointerPolicy::COPY) noexcept
+     {
+         return NdArray<dtype>(ptr, size, pointerPolicy);
+@@ -318,11 +317,8 @@ namespace nc
+     ///                       act as a non-owning shell. Default Copy
+     /// @return NdArray
+     ///
+-    template<typename dtype,
+-             typename UIntType1,
+-             typename UIntType2,
+-             std::enable_if_t<std::is_integral_v<UIntType1> && !std::is_same_v<UIntType1, bool>, int> = 0,
+-             std::enable_if_t<std::is_integral_v<UIntType2> && !std::is_same_v<UIntType2, bool>, int> = 0>
++    template<typename dtype, std::integral UIntType1, std::integral UIntType2>
++    requires (!std::is_same_v<UIntType1, bool> && !std::is_same_v<UIntType2, bool>)
+     NdArray<dtype> asarray(dtype*        ptr,
+                            UIntType1     numRows,
+                            UIntType2     numCols,
+diff --git a/include/NumCpp/Functions/astype.hpp b/include/NumCpp/Functions/astype.hpp
+index 6a2f74ba3..c1bb00e4f 100644
+--- a/include/NumCpp/Functions/astype.hpp
++++ b/include/NumCpp/Functions/astype.hpp
+@@ -29,7 +29,6 @@
+ 
+ #include <complex>
+ 
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
+ #include "NumCpp/NdArray.hpp"
+ 
+ namespace nc
+diff --git a/include/NumCpp/Functions/average.hpp b/include/NumCpp/Functions/average.hpp
+index b177389da..8767fb472 100644
+--- a/include/NumCpp/Functions/average.hpp
++++ b/include/NumCpp/Functions/average.hpp
+@@ -34,7 +34,6 @@
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+ #include "NumCpp/Core/Internal/StdComplexOperators.hpp"
+ #include "NumCpp/Core/Internal/StlAlgorithms.hpp"
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
+ #include "NumCpp/Core/Shape.hpp"
+ #include "NumCpp/Core/Types.hpp"
+ #include "NumCpp/Functions/mean.hpp"
+diff --git a/include/NumCpp/Functions/clip.hpp b/include/NumCpp/Functions/clip.hpp
+index 1b93b3f07..5efabe71d 100644
+--- a/include/NumCpp/Functions/clip.hpp
++++ b/include/NumCpp/Functions/clip.hpp
+@@ -49,7 +49,7 @@ namespace nc
+     template<typename dtype>
+     dtype clip(dtype inValue, dtype inMinValue, dtype inMaxValue)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+ #ifdef __cpp_lib_clamp
+         const auto comparitor = [](dtype lhs, dtype rhs) noexcept -> bool { return lhs < rhs; };
+diff --git a/include/NumCpp/Functions/cov.hpp b/include/NumCpp/Functions/cov.hpp
+index 9eef64c13..cbd71b2b8 100644
+--- a/include/NumCpp/Functions/cov.hpp
++++ b/include/NumCpp/Functions/cov.hpp
+@@ -52,7 +52,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<double> cov(const NdArray<dtype>& x, Bias bias = Bias::NO)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         const auto varMeans = mean(x, Axis::COL);
+         const auto numVars  = x.numRows();
+diff --git a/include/NumCpp/Functions/deg2rad.hpp b/include/NumCpp/Functions/deg2rad.hpp
+index b67eb6f81..1cd9366ab 100644
+--- a/include/NumCpp/Functions/deg2rad.hpp
++++ b/include/NumCpp/Functions/deg2rad.hpp
+@@ -46,7 +46,7 @@ namespace nc
+     template<typename dtype>
+     constexpr auto deg2rad(dtype inValue) noexcept
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         return inValue * constants::pi / 180.;
+     }
+diff --git a/include/NumCpp/Functions/deleteIndices.hpp b/include/NumCpp/Functions/deleteIndices.hpp
+index 0210d5416..827dbb756 100644
+--- a/include/NumCpp/Functions/deleteIndices.hpp
++++ b/include/NumCpp/Functions/deleteIndices.hpp
+@@ -49,10 +49,10 @@ namespace nc
+         /// @param inIndices
+         /// @return NdArray
+         ///
+-        template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<typename dtype, NdArrayInt Indices>
+         NdArray<dtype> deleteFlatIndices(const NdArray<dtype>& inArray, Indices inIndices)
+         {
+-            if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++            if constexpr (NdArraySignedInt<Indices>)
+             {
+                 const auto arraySize = inArray.size();
+                 stl_algorithms::for_each(inIndices.begin(),
+@@ -91,11 +91,11 @@ namespace nc
+         /// @param inIndices
+         /// @return NdArray
+         ///
+-        template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<typename dtype, NdArrayInt Indices>
+         NdArray<dtype> deleteRowIndices(const NdArray<dtype>& inArray, Indices inIndices)
+         {
+             const auto arrayRows = static_cast<int32>(inArray.numRows());
+-            if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++            if constexpr (NdArraySignedInt<Indices>)
+             {
+                 stl_algorithms::for_each(inIndices.begin(),
+                                          inIndices.end(),
+@@ -161,11 +161,11 @@ namespace nc
+         /// @param inIndices
+         /// @return NdArray
+         ///
+-        template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<typename dtype, NdArrayInt Indices>
+         NdArray<dtype> deleteColumnIndices(const NdArray<dtype>& inArray, Indices inIndices)
+         {
+             const auto arrayCols = static_cast<int32>(inArray.numCols());
+-            if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++            if constexpr (NdArraySignedInt<Indices>)
+             {
+                 stl_algorithms::for_each(inIndices.begin(),
+                                          inIndices.end(),
+@@ -233,7 +233,7 @@ namespace nc
+     /// @param inAxis (Optional, default NONE) if NONE the indices will be applied to the flattened array
+     /// @return NdArray
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype> deleteIndices(const NdArray<dtype>& inArray, const Indices& inIndices, Axis inAxis = Axis::NONE)
+     {
+         switch (inAxis)
+diff --git a/include/NumCpp/Functions/empty.hpp b/include/NumCpp/Functions/empty.hpp
+index a88c7b1af..52ed780f7 100644
+--- a/include/NumCpp/Functions/empty.hpp
++++ b/include/NumCpp/Functions/empty.hpp
+@@ -46,6 +46,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> empty(uint32 inNumRows, uint32 inNumCols)
+     {
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+         return NdArray<dtype>(inNumRows, inNumCols);
+     }
+ 
+@@ -61,6 +62,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> empty(const Shape& inShape)
+     {
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+         return NdArray<dtype>(inShape);
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/fix.hpp b/include/NumCpp/Functions/fix.hpp
+index fc98c9ddd..0241e202a 100644
+--- a/include/NumCpp/Functions/fix.hpp
++++ b/include/NumCpp/Functions/fix.hpp
+@@ -47,7 +47,7 @@ namespace nc
+     template<typename dtype>
+     dtype fix(dtype inValue) noexcept
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         return inValue > 0 ? std::floor(inValue) : std::ceil(inValue);
+     }
+diff --git a/include/NumCpp/Functions/flip.hpp b/include/NumCpp/Functions/flip.hpp
+index 963822b8a..c450ffa52 100644
+--- a/include/NumCpp/Functions/flip.hpp
++++ b/include/NumCpp/Functions/flip.hpp
+@@ -46,6 +46,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> flip(const NdArray<dtype>& inArray, Axis inAxis = Axis::NONE)
+     {
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+         switch (inAxis)
+         {
+             case Axis::NONE:
+diff --git a/include/NumCpp/Functions/fmax.hpp b/include/NumCpp/Functions/fmax.hpp
+index 74a326cd0..52772c0f0 100644
+--- a/include/NumCpp/Functions/fmax.hpp
++++ b/include/NumCpp/Functions/fmax.hpp
+@@ -54,7 +54,7 @@ namespace nc
+     template<typename dtype>
+     dtype fmax(dtype inValue1, dtype inValue2) noexcept
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return std::max(inValue1,
+                         inValue2,
+diff --git a/include/NumCpp/Functions/fmin.hpp b/include/NumCpp/Functions/fmin.hpp
+index d167ea1ac..8f61d7d10 100644
+--- a/include/NumCpp/Functions/fmin.hpp
++++ b/include/NumCpp/Functions/fmin.hpp
+@@ -55,7 +55,7 @@ namespace nc
+     template<typename dtype>
+     dtype fmin(dtype inValue1, dtype inValue2) noexcept
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return std::min(inValue1,
+                         inValue2,
+diff --git a/include/NumCpp/Functions/fmod.hpp b/include/NumCpp/Functions/fmod.hpp
+index f1e574695..70e2fbbc8 100644
+--- a/include/NumCpp/Functions/fmod.hpp
++++ b/include/NumCpp/Functions/fmod.hpp
+@@ -48,7 +48,7 @@ namespace nc
+     /// @param inValue2
+     /// @return value
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype>, int> = 0>
++    template<std::integral dtype>
+     dtype fmod(dtype inValue1, dtype inValue2) noexcept
+     {
+         return inValue1 % inValue2;
+@@ -65,7 +65,7 @@ namespace nc
+     /// @param inValue2
+     /// @return value
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_floating_point_v<dtype>, int> = 0>
++    template<std::floating_point dtype>
+     dtype fmod(dtype inValue1, dtype inValue2) noexcept
+     {
+         return std::fmod(inValue1, inValue2);
+diff --git a/include/NumCpp/Functions/full.hpp b/include/NumCpp/Functions/full.hpp
+index 86115265a..431b7bbcb 100644
+--- a/include/NumCpp/Functions/full.hpp
++++ b/include/NumCpp/Functions/full.hpp
+@@ -46,6 +46,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> full(uint32 inSquareSize, dtype inFillValue)
+     {
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+         NdArray<dtype> returnArray(inSquareSize, inSquareSize);
+         returnArray.fill(inFillValue);
+         return returnArray;
+@@ -65,6 +66,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> full(uint32 inNumRows, uint32 inNumCols, dtype inFillValue)
+     {
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+         NdArray<dtype> returnArray(inNumRows, inNumCols);
+         returnArray.fill(inFillValue);
+         return returnArray;
+@@ -83,6 +85,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> full(const Shape& inShape, dtype inFillValue)
+     {
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+         return full(inShape.rows, inShape.cols, inFillValue);
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/hammingEncode.hpp b/include/NumCpp/Functions/hammingEncode.hpp
+index 6272b6b93..cbe14b8ac 100644
+--- a/include/NumCpp/Functions/hammingEncode.hpp
++++ b/include/NumCpp/Functions/hammingEncode.hpp
+@@ -53,7 +53,7 @@ namespace nc::edac
+         /// @param n integer value
+         /// @return bool true if value is a power of two, else false
+         ///
+-        template<typename IntType, std::enable_if_t<std::is_integral_v<IntType>, int> = 0>
++        template<std::integral IntType>
+         constexpr bool isPowerOfTwo(IntType n) noexcept
+         {
+             // Returns true if the given non-negative integer n is a power of two.
+@@ -72,7 +72,7 @@ namespace nc::edac
+         /// @return next power of two
+         /// @exception std::invalid_argument if input value is less than zero
+         ////
+-        template<typename IntType, std::enable_if_t<std::is_integral_v<IntType>, int> = 0>
++        template<std::integral IntType>
+         std::size_t nextPowerOfTwo(IntType n)
+         {
+             if (n < 0)
+@@ -96,7 +96,7 @@ namespace nc::edac
+         /// @return first n powers of two
+         /// @exception std::bad_alloc if unable to allocate for return vector
+         ///
+-        template<typename IntType, std::enable_if_t<std::is_integral_v<IntType>, int> = 0>
++        template<std::integral IntType>
+         std::vector<std::size_t> powersOfTwo(IntType n)
+         {
+             auto i      = std::size_t{ 0 };
+@@ -123,7 +123,7 @@ namespace nc::edac
+         /// @exception std::invalid_argument if input value is less than zero
+         /// @exception std::runtime_error if the number of data bits does not represent a valid Hamming SECDED code
+         ///
+-        template<typename IntType, std::enable_if_t<std::is_integral_v<IntType>, int> = 0>
++        template<std::integral IntType>
+         std::size_t numSecdedParityBitsNeeded(IntType numDataBits)
+         {
+             const auto n               = nextPowerOfTwo(numDataBits);
+@@ -152,10 +152,7 @@ namespace nc::edac
+         /// @exception std::invalid_argument if parityBit is not a power of two
+         /// @exception std::bad_alloc if unable to allocate return vector
+         ///
+-        template<typename IntType1,
+-                 typename IntType2,
+-                 std::enable_if_t<std::is_integral_v<IntType1>, int> = 0,
+-                 std::enable_if_t<std::is_integral_v<IntType2>, int> = 0>
++        template<std::integral IntType1, std::integral IntType2>
+         std::vector<std::size_t> dataBitsCovered(IntType1 numDataBits, IntType2 parityBit)
+         {
+             if (!isPowerOfTwo(parityBit))
+@@ -233,7 +230,7 @@ namespace nc::edac
+         /// @exception std::invalid_argument if parityBit is not a power of two
+         /// @exception std::bad_alloc if unable to allocate return vector
+         ///
+-        template<std::size_t DataBits, typename IntType, std::enable_if_t<std::is_integral_v<IntType>, int> = 0>
++        template<std::size_t DataBits, std::integral IntType>
+         bool calculateParity(const std::bitset<DataBits>& data, IntType parityBit)
+         {
+             const auto bitsCovered = dataBitsCovered(DataBits, parityBit);
+@@ -251,9 +248,8 @@ namespace nc::edac
+         /// @exception std::runtime_error if DataBits and EncodedBits are not consistent
+         /// @exception std::runtime_error if the number of data bits does not represent a valid Hamming SECDED code
+         ///
+-        template<std::size_t DataBits,
+-                 std::size_t EncodedBits,
+-                 std::enable_if_t<greaterThan_v<EncodedBits, DataBits>, int> = 0>
++        template<std::size_t DataBits, std::size_t EncodedBits>
++        requires GreaterThan<EncodedBits, DataBits>
+         std::size_t checkBitsConsistent()
+         {
+             const auto numParityBits = detail::numSecdedParityBitsNeeded(DataBits);
+@@ -273,9 +269,8 @@ namespace nc::edac
+         /// @param encodedBits the Hamming SECDED encoded word
+         /// @return data bits from the encoded word
+         ///
+-        template<std::size_t DataBits,
+-                 std::size_t EncodedBits,
+-                 std::enable_if_t<greaterThan_v<EncodedBits, DataBits>, int> = 0>
++        template<std::size_t DataBits, std::size_t EncodedBits>
++        requires GreaterThan<EncodedBits, DataBits>
+         std::bitset<DataBits> extractData(const std::bitset<EncodedBits>& encodedBits) noexcept
+         {
+             auto dataBits = std::bitset<DataBits>();
+@@ -349,9 +344,8 @@ namespace nc::edac
+     /// @exception std::runtime_error if DataBits and EncodedBits are not consistent
+     /// @exception std::runtime_error if the number of data bits does not represent a valid Hamming SECDED code
+     ///
+-    template<std::size_t DataBits,
+-             std::size_t EncodedBits,
+-             std::enable_if_t<greaterThan_v<EncodedBits, DataBits>, int> = 0>
++    template<std::size_t DataBits, std::size_t EncodedBits>
++    requires GreaterThan<EncodedBits, DataBits>
+     int decode(std::bitset<EncodedBits> encodedBits, std::bitset<DataBits>& decodedBits)
+     {
+         const auto numParityBits = detail::checkBitsConsistent<DataBits, EncodedBits>();
+diff --git a/include/NumCpp/Functions/hsplit.hpp b/include/NumCpp/Functions/hsplit.hpp
+index 347a274e4..942ab6351 100644
+--- a/include/NumCpp/Functions/hsplit.hpp
++++ b/include/NumCpp/Functions/hsplit.hpp
+@@ -46,7 +46,7 @@ namespace nc
+     ///
+     /// @return NdArray
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     std::vector<NdArray<dtype>> hsplit(const NdArray<dtype>& inArray, const Indices& indices)
+     {
+         const auto     numCols = static_cast<int32>(inArray.numCols());
+@@ -56,7 +56,7 @@ namespace nc
+                                   uniqueIndices.begin(),
+                                   [numCols](auto index) noexcept -> int32
+                                   {
+-                                      if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++                                      if constexpr (NdArraySignedInt<Indices>)
+                                       {
+                                           if (index < 0)
+                                           {
+diff --git a/include/NumCpp/Functions/insert.hpp b/include/NumCpp/Functions/insert.hpp
+index b3ddc30fc..e8e2221f3 100644
+--- a/include/NumCpp/Functions/insert.hpp
++++ b/include/NumCpp/Functions/insert.hpp
+@@ -242,7 +242,7 @@ namespace nc
+     /// @param axis: axis along which to insert values
+     /// @return index: index before which values are inserted.
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype> insert(const NdArray<dtype>& arr, const Indices& indices, const dtype& value, Axis axis = Axis::NONE)
+     {
+         const NdArray<dtype> values = { value };
+@@ -283,7 +283,7 @@ namespace nc
+     /// @param axis: axis along which to insert values
+     /// @return index: index before which values are inserted.
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype>
+         insert(const NdArray<dtype>& arr, const Indices& indices, const NdArray<dtype>& values, Axis axis = Axis::NONE)
+     {
+@@ -309,7 +309,7 @@ namespace nc
+                                               indexValues.begin(),
+                                               [arrSize, value](auto index) -> std::pair<int32, dtype>
+                                               {
+-                                                  if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++                                                  if constexpr (NdArraySignedInt<Indices>)
+                                                   {
+                                                       if (index < 0)
+                                                       {
+@@ -337,7 +337,7 @@ namespace nc
+                                               indexValues.begin(),
+                                               [arrSize](auto index, const auto& value) -> std::pair<int32, dtype>
+                                               {
+-                                                  if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++                                                  if constexpr (NdArraySignedInt<Indices>)
+                                                   {
+                                                       if (index < 0)
+                                                       {
+@@ -410,7 +410,7 @@ namespace nc
+                                               indexValues.begin(),
+                                               [arrNumRows, &valueRow](auto index) -> std::pair<int32, NdArray<dtype>>
+                                               {
+-                                                  if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++                                                  if constexpr (NdArraySignedInt<Indices>)
+                                                   {
+                                                       if (index < 0)
+                                                       {
+@@ -437,7 +437,7 @@ namespace nc
+                                               indexValues.begin(),
+                                               [arrNumRows, &values](auto index) -> std::pair<int32, NdArray<dtype>>
+                                               {
+-                                                  if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++                                                  if constexpr (NdArraySignedInt<Indices>)
+                                                   {
+                                                       if (index < 0)
+                                                       {
+@@ -465,7 +465,7 @@ namespace nc
+                                    indexValues.begin(),
+                                    [arrNumRows, &values, &counter](auto index) -> std::pair<int32, NdArray<dtype>>
+                                    {
+-                                       if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++                                       if constexpr (NdArraySignedInt<Indices>)
+                                        {
+                                            if (index < 0)
+                                            {
+diff --git a/include/NumCpp/Functions/linspace.hpp b/include/NumCpp/Functions/linspace.hpp
+index d6373b501..9bf9156fb 100644
+--- a/include/NumCpp/Functions/linspace.hpp
++++ b/include/NumCpp/Functions/linspace.hpp
+@@ -60,7 +60,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> linspace(dtype inStart, dtype inStop, uint32 inNum = 50, EndPoint endPoint = EndPoint::YES)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         if (inNum == 0)
+         {
+diff --git a/include/NumCpp/Functions/logical_xor.hpp b/include/NumCpp/Functions/logical_xor.hpp
+index 9f4453099..363832e57 100644
+--- a/include/NumCpp/Functions/logical_xor.hpp
++++ b/include/NumCpp/Functions/logical_xor.hpp
+@@ -50,7 +50,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<bool> logical_xor(const NdArray<dtype>& inArray1, const NdArray<dtype>& inArray2)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return broadcast::broadcaster<bool>(inArray1,
+                                             inArray2,
+diff --git a/include/NumCpp/Functions/mean.hpp b/include/NumCpp/Functions/mean.hpp
+index a2e81fdc1..7528a757c 100644
+--- a/include/NumCpp/Functions/mean.hpp
++++ b/include/NumCpp/Functions/mean.hpp
+@@ -51,7 +51,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<double> mean(const NdArray<dtype>& inArray, Axis inAxis = Axis::NONE)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         switch (inAxis)
+         {
+@@ -99,7 +99,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<std::complex<double>> mean(const NdArray<std::complex<dtype>>& inArray, Axis inAxis = Axis::NONE)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         switch (inAxis)
+         {
+diff --git a/include/NumCpp/Functions/median.hpp b/include/NumCpp/Functions/median.hpp
+index 6b66f305f..8b182b5a2 100644
+--- a/include/NumCpp/Functions/median.hpp
++++ b/include/NumCpp/Functions/median.hpp
+@@ -46,6 +46,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> median(const NdArray<dtype>& inArray, Axis inAxis = Axis::NONE)
+     {
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+         return inArray.median(inAxis);
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/ones.hpp b/include/NumCpp/Functions/ones.hpp
+index 26324380c..3a22fcf02 100644
+--- a/include/NumCpp/Functions/ones.hpp
++++ b/include/NumCpp/Functions/ones.hpp
+@@ -47,7 +47,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> ones(uint32 inSquareSize)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return full(inSquareSize, inSquareSize, dtype{ 1 });
+     }
+@@ -65,7 +65,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> ones(uint32 inNumRows, uint32 inNumCols)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return full(inNumRows, inNumCols, dtype{ 1 });
+     }
+@@ -82,7 +82,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> ones(const Shape& inShape)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return full(inShape, dtype{ 1 });
+     }
+diff --git a/include/NumCpp/Functions/packbits.hpp b/include/NumCpp/Functions/packbits.hpp
+index d9cf92fe6..d93327dd9 100644
+--- a/include/NumCpp/Functions/packbits.hpp
++++ b/include/NumCpp/Functions/packbits.hpp
+@@ -31,9 +31,14 @@
+ 
+ #include "NumCpp/Core/Internal/Error.hpp"
+ #include "NumCpp/NdArray.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc
+ {
++    // Custom concept for integral or bool
++    template<typename T>
++    concept IntegralOrBool = std::is_integral_v<T> || std::is_same_v<T, bool>;
++
+     //============================================================================
+     // Method Description:
+     /// Packs the elements of a binary-valued array into bits in a uint8 array.
+@@ -44,7 +49,7 @@ namespace nc
+     /// @param axis: The dimension over which bit-packing is done. None implies packing the flattened array.
+     /// @return NdArray<uint8>
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype> || std::is_same_v<dtype, bool>, int> = 0>
++    template<IntegralOrBool dtype>
+     NdArray<uint8> packbitsLittleEndian(const NdArray<dtype>& a, Axis axis = Axis::NONE)
+     {
+         switch (axis)
+@@ -122,7 +127,7 @@ namespace nc
+     /// @param axis: The dimension over which bit-packing is done. None implies packing the flattened array.
+     /// @return NdArray<uint8>
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype> || std::is_same_v<dtype, bool>, int> = 0>
++    template<IntegralOrBool dtype>
+     NdArray<uint8> packbitsBigEndian(const NdArray<dtype>& a, Axis axis = Axis::NONE)
+     {
+         switch (axis)
+diff --git a/include/NumCpp/Functions/percentile.hpp b/include/NumCpp/Functions/percentile.hpp
+index 2274d5362..0811572ed 100644
+--- a/include/NumCpp/Functions/percentile.hpp
++++ b/include/NumCpp/Functions/percentile.hpp
+@@ -68,7 +68,7 @@ namespace nc
+                                Axis                  inAxis         = Axis::NONE,
+                                InterpolationMethod   inInterpMethod = InterpolationMethod::LINEAR)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         if (inPercentile < 0. || inPercentile > 100.)
+         {
+diff --git a/include/NumCpp/Functions/ptp.hpp b/include/NumCpp/Functions/ptp.hpp
+index bbb6d31ca..b7a6afe48 100644
+--- a/include/NumCpp/Functions/ptp.hpp
++++ b/include/NumCpp/Functions/ptp.hpp
+@@ -45,6 +45,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> ptp(const NdArray<dtype>& inArray, Axis inAxis = Axis::NONE)
+     {
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+         return inArray.ptp(inAxis);
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/put.hpp b/include/NumCpp/Functions/put.hpp
+index 9b4bcbaa5..0391d5498 100644
+--- a/include/NumCpp/Functions/put.hpp
++++ b/include/NumCpp/Functions/put.hpp
+@@ -78,7 +78,7 @@ namespace nc
+     /// @param inValue
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype>& put(NdArray<dtype>& inArray, const Indices& inIndices, const dtype& inValue)
+     {
+         inArray.put(inIndices, inValue);
+@@ -96,7 +96,7 @@ namespace nc
+     /// @param inValues
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype>& put(NdArray<dtype>& inArray, const Indices& inIndices, const NdArray<dtype>& inValues)
+     {
+         inArray.put(inIndices, inValues);
+@@ -151,11 +151,7 @@ namespace nc
+     /// @param inValue
+     /// @return reference to self
+     ///
+-    template<typename dtype,
+-             typename RowIndices,
+-             typename ColIndices,
+-             type_traits::ndarray_int_concept<RowIndices> = 0,
+-             type_traits::ndarray_int_concept<ColIndices> = 0>
++    template<typename dtype, NdArrayInt RowIndices, NdArrayInt ColIndices>
+     NdArray<dtype>& put(NdArray<dtype>&   inArray,
+                         const RowIndices& inRowIndices,
+                         const ColIndices& inColIndices,
+@@ -177,7 +173,7 @@ namespace nc
+     /// @param inValue
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename RowIndices, type_traits::ndarray_int_concept<RowIndices> = 0>
++    template<typename dtype, NdArrayInt RowIndices>
+     NdArray<dtype>&
+         put(NdArray<dtype>& inArray, const RowIndices& inRowIndices, const Slice& inColSlice, const dtype& inValue)
+     {
+@@ -197,7 +193,7 @@ namespace nc
+     /// @param inValue
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename ColIndices, type_traits::ndarray_int_concept<ColIndices> = 0>
++    template<typename dtype, NdArrayInt ColIndices>
+     NdArray<dtype>&
+         put(NdArray<dtype>& inArray, const Slice& inRowSlice, const ColIndices& inColIndices, const dtype& inValue)
+     {
+@@ -236,7 +232,7 @@ namespace nc
+     /// @param inValue
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype>& put(NdArray<dtype>& inArray, const Indices& inRowIndices, int32 inColIndex, const dtype& inValue)
+     {
+         inArray.put(inRowIndices, inColIndex, inValue);
+@@ -274,7 +270,7 @@ namespace nc
+     /// @param inValue
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype>& put(NdArray<dtype>& inArray, int32 inRowIndex, const Indices& inColIndices, const dtype& inValue)
+     {
+         inArray.put(inRowIndex, inColIndices, inValue);
+@@ -312,11 +308,7 @@ namespace nc
+     /// @param inValues
+     /// @return reference to self
+     ///
+-    template<typename dtype,
+-             typename RowIndices,
+-             typename ColIndices,
+-             type_traits::ndarray_int_concept<RowIndices> = 0,
+-             type_traits::ndarray_int_concept<ColIndices> = 0>
++    template<typename dtype, NdArrayInt RowIndices, NdArrayInt ColIndices>
+     NdArray<dtype>& put(NdArray<dtype>&       inArray,
+                         const RowIndices&     inRowIndices,
+                         const ColIndices&     inColIndices,
+@@ -338,7 +330,7 @@ namespace nc
+     /// @param inValues
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename RowIndices, type_traits::ndarray_int_concept<RowIndices> = 0>
++    template<typename dtype, NdArrayInt RowIndices>
+     NdArray<dtype>& put(NdArray<dtype>&       inArray,
+                         const RowIndices&     inRowIndices,
+                         const Slice&          inColSlice,
+@@ -360,7 +352,7 @@ namespace nc
+     /// @param inValues
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename ColIndices, type_traits::ndarray_int_concept<ColIndices> = 0>
++    template<typename dtype, NdArrayInt ColIndices>
+     NdArray<dtype>& put(NdArray<dtype>&       inArray,
+                         const Slice&          inRowSlice,
+                         const ColIndices&     inColIndices,
+@@ -402,7 +394,7 @@ namespace nc
+     /// @param inValues
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype>&
+         put(NdArray<dtype>& inArray, const Indices& inRowIndices, int32 inColIndex, const NdArray<dtype>& inValues)
+     {
+@@ -442,7 +434,7 @@ namespace nc
+     /// @param inValues
+     /// @return reference to self
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype>&
+         put(NdArray<dtype>& inArray, int32 inRowIndex, const Indices& inColIndices, const NdArray<dtype>& inValues)
+     {
+diff --git a/include/NumCpp/Functions/rad2deg.hpp b/include/NumCpp/Functions/rad2deg.hpp
+index a14c51241..1591b8b88 100644
+--- a/include/NumCpp/Functions/rad2deg.hpp
++++ b/include/NumCpp/Functions/rad2deg.hpp
+@@ -47,7 +47,7 @@ namespace nc
+     template<typename dtype>
+     constexpr auto rad2deg(dtype inValue) noexcept
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         return inValue * 180. / constants::pi;
+     }
+diff --git a/include/NumCpp/Functions/round.hpp b/include/NumCpp/Functions/round.hpp
+index 1a9b6ecc1..f568be9d7 100644
+--- a/include/NumCpp/Functions/round.hpp
++++ b/include/NumCpp/Functions/round.hpp
+@@ -44,6 +44,7 @@ namespace nc
+     template<typename dtype>
+     dtype round(dtype inValue, uint8 inDecimals = 0)
+     {
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+         NdArray<dtype> input = { inValue };
+         return input.round(inDecimals).item();
+     }
+@@ -60,6 +61,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> round(const NdArray<dtype>& inArray, uint8 inDecimals = 0)
+     {
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+         return inArray.round(inDecimals);
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/split.hpp b/include/NumCpp/Functions/split.hpp
+index 21a0a4a5b..0331e649e 100644
+--- a/include/NumCpp/Functions/split.hpp
++++ b/include/NumCpp/Functions/split.hpp
+@@ -48,7 +48,7 @@ namespace nc
+     ///
+     /// @return NdArray
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     std::vector<NdArray<dtype>> split(const NdArray<dtype>& inArray, const Indices& indices, Axis inAxis = Axis::ROW)
+     {
+         switch (inAxis)
+diff --git a/include/NumCpp/Functions/stdev.hpp b/include/NumCpp/Functions/stdev.hpp
+index fc205e6de..4a5abbb39 100644
+--- a/include/NumCpp/Functions/stdev.hpp
++++ b/include/NumCpp/Functions/stdev.hpp
+@@ -51,7 +51,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<double> stdev(const NdArray<dtype>& inArray, Axis inAxis = Axis::NONE)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         double meanValue = 0.;
+         double sum       = 0.;
+@@ -109,7 +109,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<std::complex<double>> stdev(const NdArray<std::complex<dtype>>& inArray, Axis inAxis = Axis::NONE)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         std::complex<double> meanValue(0., 0.);
+         std::complex<double> sum(0., 0.);
+diff --git a/include/NumCpp/Functions/sum.hpp b/include/NumCpp/Functions/sum.hpp
+index b6cdc1a7c..6f28bfa41 100644
+--- a/include/NumCpp/Functions/sum.hpp
++++ b/include/NumCpp/Functions/sum.hpp
+@@ -45,6 +45,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> sum(const NdArray<dtype>& inArray, Axis inAxis = Axis::NONE)
+     {
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+         return inArray.sum(inAxis);
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/take.hpp b/include/NumCpp/Functions/take.hpp
+index 939af1a34..8cc5b7552 100644
+--- a/include/NumCpp/Functions/take.hpp
++++ b/include/NumCpp/Functions/take.hpp
+@@ -44,7 +44,7 @@ namespace nc
+     /// @param inAxis
+     /// @return NdArray
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     NdArray<dtype> take(const NdArray<dtype>& inArray, const Indices& inIndices, Axis inAxis = Axis::NONE)
+     {
+         switch (inAxis)
+diff --git a/include/NumCpp/Functions/trace.hpp b/include/NumCpp/Functions/trace.hpp
+index 9c03e6d79..5ecb1b910 100644
+--- a/include/NumCpp/Functions/trace.hpp
++++ b/include/NumCpp/Functions/trace.hpp
+@@ -46,6 +46,7 @@ namespace nc
+     template<typename dtype>
+     dtype trace(const NdArray<dtype>& inArray, int16 inOffset = 0, Axis inAxis = Axis::ROW) noexcept
+     {
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+         return inArray.trace(inOffset, inAxis);
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/transpose.hpp b/include/NumCpp/Functions/transpose.hpp
+index d6853df2a..c796f4a2b 100644
+--- a/include/NumCpp/Functions/transpose.hpp
++++ b/include/NumCpp/Functions/transpose.hpp
+@@ -44,6 +44,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> transpose(const NdArray<dtype>& inArray)
+     {
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+         return inArray.transpose();
+     }
+ } // namespace nc
+diff --git a/include/NumCpp/Functions/unique.hpp b/include/NumCpp/Functions/unique.hpp
+index 0d6e05adc..2b1819d2d 100644
+--- a/include/NumCpp/Functions/unique.hpp
++++ b/include/NumCpp/Functions/unique.hpp
+@@ -52,7 +52,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> unique(const NdArray<dtype>& inArray)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         const auto comp = [](const dtype lhs, const dtype rhs) noexcept -> bool
+         { return utils::essentiallyEqual(lhs, rhs); };
+diff --git a/include/NumCpp/Functions/unwrap.hpp b/include/NumCpp/Functions/unwrap.hpp
+index 2e9299a41..68ca866a9 100644
+--- a/include/NumCpp/Functions/unwrap.hpp
++++ b/include/NumCpp/Functions/unwrap.hpp
+@@ -49,7 +49,7 @@ namespace nc
+     template<typename dtype>
+     dtype unwrap(dtype inValue) noexcept
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         return static_cast<dtype>(std::atan2(std::sin(inValue), std::cos(inValue)));
+     }
+diff --git a/include/NumCpp/Functions/var.hpp b/include/NumCpp/Functions/var.hpp
+index 76f70ec17..8e1811098 100644
+--- a/include/NumCpp/Functions/var.hpp
++++ b/include/NumCpp/Functions/var.hpp
+@@ -50,7 +50,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<double> var(const NdArray<dtype>& inArray, Axis inAxis = Axis::NONE)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         NdArray<double> stdValues = stdev(inArray, inAxis);
+         const auto      function  = [](double& value) -> void { value *= value; };
+@@ -73,7 +73,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<std::complex<double>> var(const NdArray<std::complex<dtype>>& inArray, Axis inAxis = Axis::NONE)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         NdArray<std::complex<double>> stdValues = stdev(inArray, inAxis);
+         const auto                    function  = [](std::complex<double>& value) -> void { value *= value; };
+diff --git a/include/NumCpp/Functions/vsplit.hpp b/include/NumCpp/Functions/vsplit.hpp
+index 0077c5ee7..4393aa407 100644
+--- a/include/NumCpp/Functions/vsplit.hpp
++++ b/include/NumCpp/Functions/vsplit.hpp
+@@ -45,7 +45,7 @@ namespace nc
+     ///
+     /// @return NdArray
+     ///
+-    template<typename dtype, typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++    template<typename dtype, NdArrayInt Indices>
+     std::vector<NdArray<dtype>> vsplit(const NdArray<dtype>& inArray, const Indices& indices)
+     {
+         const auto     numRows = static_cast<int32>(inArray.numRows());
+@@ -55,7 +55,7 @@ namespace nc
+                                   uniqueIndices.begin(),
+                                   [numRows](auto index) noexcept -> int32
+                                   {
+-                                      if constexpr (type_traits::is_ndarray_signed_int_v<Indices>)
++                                      if constexpr (NdArraySignedInt<Indices>)
+                                       {
+                                           if (index < 0)
+                                           {
+diff --git a/include/NumCpp/Functions/zeros.hpp b/include/NumCpp/Functions/zeros.hpp
+index fbc9fbf39..0a713a35e 100644
+--- a/include/NumCpp/Functions/zeros.hpp
++++ b/include/NumCpp/Functions/zeros.hpp
+@@ -47,7 +47,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> zeros(uint32 inSquareSize)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return full(inSquareSize, dtype{ 0 });
+     }
+@@ -65,7 +65,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> zeros(uint32 inNumRows, uint32 inNumCols)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return full(inNumRows, inNumCols, dtype{ 0 });
+     }
+@@ -82,7 +82,7 @@ namespace nc
+     template<typename dtype>
+     NdArray<dtype> zeros(const Shape& inShape)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
++        static_assert(nc::ArithmeticOrComplex<dtype>, "Can only be used with arithmetic or std::complex types");
+ 
+         return full(inShape, dtype{ 0 });
+     }
+diff --git a/include/NumCpp/Linalg/cholesky.hpp b/include/NumCpp/Linalg/cholesky.hpp
+index 92d719208..8fb8a55a4 100644
+--- a/include/NumCpp/Linalg/cholesky.hpp
++++ b/include/NumCpp/Linalg/cholesky.hpp
+@@ -50,11 +50,9 @@ namespace nc::linalg
+     ///
+     /// @return NdArray of the decomposed L matrix
+     ///
+-    template<typename dtype>
++    template<nc::Arithmetic dtype>
+     NdArray<double> cholesky(const NdArray<dtype>& inMatrix)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
+-
+         const auto shape = inMatrix.shape();
+         if (!shape.issquare())
+         {
+diff --git a/include/NumCpp/Linalg/gaussNewtonNlls.hpp b/include/NumCpp/Linalg/gaussNewtonNlls.hpp
+index 07901b5b7..d74649ddf 100644
+--- a/include/NumCpp/Linalg/gaussNewtonNlls.hpp
++++ b/include/NumCpp/Linalg/gaussNewtonNlls.hpp
+@@ -42,12 +42,13 @@
+ #include "NumCpp/Functions/rms.hpp"
+ #include "NumCpp/Linalg/inv.hpp"
+ #include "NumCpp/NdArray.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::linalg
+ {
+     //============================================================================
+     // Method Description:
+-    /// The Gauss�Newton algorithm is used to solve non-linear least squares problems.
++    /// The GaussNewton algorithm is used to solve non-linear least squares problems.
+     /// It is a modification of Newton's method for finding a minimum of a function.
+     /// https://en.wikipedia.org/wiki/Gauss%E2%80%93Newton_algorithm
+     ///
+@@ -68,11 +69,8 @@ namespace nc::linalg
+     ///
+     /// @return std::pair of NdArray of solved parameter values, and rms of the residuals value
+     ///
+-    template<typename dtype,
+-             typename... Params,
+-             std::enable_if_t<std::is_arithmetic_v<dtype>, int>  = 0,
+-             std::enable_if_t<all_arithmetic_v<Params...>, int>  = 0,
+-             std::enable_if_t<all_same_v<dtype, Params...>, int> = 0>
++    template<typename dtype, typename... Params>
++    requires AllArithmetic<dtype, Params...> && AllSame<dtype, Params...>
+     std::pair<NdArray<double>, double>
+         gaussNewtonNlls(const uint32                                                              numIterations,
+                         const NdArray<dtype>&                                                     coordinates,
+diff --git a/include/NumCpp/Linalg/hat.hpp b/include/NumCpp/Linalg/hat.hpp
+index f68f3f639..1d4d19bea 100644
+--- a/include/NumCpp/Linalg/hat.hpp
++++ b/include/NumCpp/Linalg/hat.hpp
+@@ -33,6 +33,7 @@
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+ #include "NumCpp/NdArray.hpp"
+ #include "NumCpp/Vector/Vec3.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::linalg
+ {
+@@ -45,11 +46,9 @@ namespace nc::linalg
+     /// @param inZ
+     /// @return 3x3 NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Arithmetic dtype>
+     NdArray<dtype> hat(dtype inX, dtype inY, dtype inZ)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
+-
+         NdArray<dtype> returnArray(3);
+         returnArray(0, 0) = 0.;
+         returnArray(0, 1) = -inZ;
+@@ -71,11 +70,9 @@ namespace nc::linalg
+     /// @param inVec (3x1, or 1x3 cartesian vector)
+     /// @return 3x3 NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Arithmetic dtype>
+     NdArray<dtype> hat(const NdArray<dtype>& inVec)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
+-
+         if (inVec.size() != 3)
+         {
+             THROW_INVALID_ARGUMENT_ERROR("input vector must be a length 3 cartesian vector.");
+diff --git a/include/NumCpp/Linalg/lstsq.hpp b/include/NumCpp/Linalg/lstsq.hpp
+index 4065f9605..1c588c75a 100644
+--- a/include/NumCpp/Linalg/lstsq.hpp
++++ b/include/NumCpp/Linalg/lstsq.hpp
+@@ -30,6 +30,7 @@
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+ #include "NumCpp/Linalg/svd/SVDClass.hpp"
+ #include "NumCpp/NdArray.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::linalg
+ {
+@@ -54,11 +55,9 @@ namespace nc::linalg
+     ///
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Arithmetic dtype>
+     NdArray<double> lstsq(const NdArray<dtype>& inA, const NdArray<dtype>& inB, double inTolerance = 1e-12)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
+-
+         const auto& aShape = inA.shape();
+         const auto& bShape = inB.shape();
+ 
+diff --git a/include/NumCpp/Linalg/matrix_power.hpp b/include/NumCpp/Linalg/matrix_power.hpp
+index 511a8596f..50f11a8fb 100644
+--- a/include/NumCpp/Linalg/matrix_power.hpp
++++ b/include/NumCpp/Linalg/matrix_power.hpp
+@@ -36,7 +36,7 @@
+ #include "NumCpp/Functions/dot.hpp"
+ #include "NumCpp/Functions/identity.hpp"
+ #include "NumCpp/NdArray.hpp"
+-
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ namespace nc::linalg
+ {
+     //============================================================================
+@@ -56,11 +56,9 @@ namespace nc::linalg
+     ///
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::ArithmeticOrComplex dtype>
+     NdArray<double> matrix_power(const NdArray<dtype>& inArray, int16 inPower)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
+-
+         const Shape inShape = inArray.shape();
+         if (inShape.rows != inShape.cols)
+         {
+diff --git a/include/NumCpp/Linalg/multi_dot.hpp b/include/NumCpp/Linalg/multi_dot.hpp
+index 68167d03a..ac1a6fdd5 100644
+--- a/include/NumCpp/Linalg/multi_dot.hpp
++++ b/include/NumCpp/Linalg/multi_dot.hpp
+@@ -34,7 +34,7 @@
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+ #include "NumCpp/Functions/dot.hpp"
+ #include "NumCpp/NdArray.hpp"
+-
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ namespace nc::linalg
+ {
+     //============================================================================
+@@ -49,11 +49,9 @@ namespace nc::linalg
+     ///
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::ArithmeticOrComplex dtype>
+     NdArray<dtype> multi_dot(const std::initializer_list<NdArray<dtype>>& inList)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
+-
+         typename std::initializer_list<NdArray<dtype>>::iterator iter = inList.begin();
+ 
+         if (inList.size() == 0)
+diff --git a/include/NumCpp/Linalg/pinv.hpp b/include/NumCpp/Linalg/pinv.hpp
+index d58306903..e9e0a8901 100644
+--- a/include/NumCpp/Linalg/pinv.hpp
++++ b/include/NumCpp/Linalg/pinv.hpp
+@@ -34,7 +34,7 @@
+ #include "NumCpp/Functions/zeros.hpp"
+ #include "NumCpp/Linalg/svd.hpp"
+ #include "NumCpp/NdArray.hpp"
+-
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ namespace nc::linalg
+ {
+     //============================================================================
+@@ -46,11 +46,9 @@ namespace nc::linalg
+     /// @param inArray
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::ArithmeticOrComplex dtype>
+     NdArray<double> pinv(const NdArray<dtype>& inArray)
+     {
+-        STATIC_ASSERT_ARITHMETIC_OR_COMPLEX(dtype);
+-
+         NdArray<double> u;
+         NdArray<double> d;
+         NdArray<double> v;
+diff --git a/include/NumCpp/Linalg/svd.hpp b/include/NumCpp/Linalg/svd.hpp
+index 5996c0f65..3861129dc 100644
+--- a/include/NumCpp/Linalg/svd.hpp
++++ b/include/NumCpp/Linalg/svd.hpp
+@@ -33,6 +33,7 @@
+ #include "NumCpp/Functions/diagflat.hpp"
+ #include "NumCpp/Linalg/svd/SVDClass.hpp"
+ #include "NumCpp/NdArray.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::linalg
+ {
+@@ -47,11 +48,9 @@ namespace nc::linalg
+     /// @param outS: NdArray output S
+     /// @param outVt: NdArray output V transpose
+     ///
+-    template<typename dtype>
++    template<nc::Arithmetic dtype>
+     void svd(const NdArray<dtype>& inArray, NdArray<double>& outU, NdArray<double>& outS, NdArray<double>& outVt)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
+-
+         SVD svdSolver(inArray.template astype<double>());
+         outU = svdSolver.u();
+ 
+diff --git a/include/NumCpp/Logging/BinaryLogger.hpp b/include/NumCpp/Logging/BinaryLogger.hpp
+index 5f4b20b92..029aff4ce 100644
+--- a/include/NumCpp/Logging/BinaryLogger.hpp
++++ b/include/NumCpp/Logging/BinaryLogger.hpp
+@@ -47,38 +47,11 @@ namespace nc::logger
+     {
+         namespace type_traits
+         {
+-            /**
+-             * @brief type trait to check if a type has a serialize method with the correct signature
+-             */
+-            template<typename DataType>
+-            using serialize_t = decltype(std::declval<DataType>().serialize());
+-
+-            /**
+-             * @brief type trait to check if a type has a serialize method with the correct signature
+-             */
+-            template<typename DataType, typename = std::void_t<>>
+-            class has_serialize : std::false_type
+-            {
+-            public:
+-                static constexpr bool value = false;
+-            };
+-
+-            /**
+-             * @brief type trait to check if a type has a serialize method with the correct signature
+-             */
++            // Modern C++20 concept to check for serialize() method returning std::string
+             template<typename DataType>
+-            class has_serialize<DataType,
+-                                std::void_t<std::enable_if_t<std::is_same_v<serialize_t<DataType>, std::string>, int>>>
+-            {
+-            public:
+-                static constexpr bool value = true;
++            concept HasSerialize = requires(DataType data) {
++                { data.serialize() } -> std::same_as<std::string>;
+             };
+-
+-            /**
+-             * @brief type trait to check if a type has a serialize method with the correct signature
+-             */
+-            template<typename DataType>
+-            inline constexpr bool has_serialize_v = has_serialize<DataType>::value;
+         } // namespace type_traits
+ 
+         /**
+@@ -95,7 +68,7 @@ namespace nc::logger
+             // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, hicpp-avoid-c-arrays, modernize-avoid-c-arrays)
+             static constexpr char LOG_EXT[]                      = ".log";
+             static constexpr auto DATA_ELEMENT_SIZE              = sizeof(value_type);
+-            static constexpr auto DATE_TYPE_HAS_SERIALIZE_METHOD = type_traits::has_serialize_v<value_type>;
++            static constexpr bool DATE_TYPE_HAS_SERIALIZE_METHOD = type_traits::HasSerialize<value_type>;
+ 
+             /**
+              * @brief Default constructor
+diff --git a/include/NumCpp/NdArray/NdArrayCore.hpp b/include/NumCpp/NdArray/NdArrayCore.hpp
+index 7cec2de35..899eec0cf 100644
+--- a/include/NumCpp/NdArray/NdArrayCore.hpp
++++ b/include/NumCpp/NdArray/NdArrayCore.hpp
+@@ -64,73 +64,10 @@
+ #include "NumCpp/Utils/power.hpp"
+ #include "NumCpp/Utils/sqr.hpp"
+ #include "NumCpp/Utils/value2str.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc
+ {
+-    namespace type_traits
+-    {
+-        //============================================================================
+-        // Class Description:
+-        /// Template class for determining if dtype is a valid index type for NdArray
+-        ///
+-        template<typename>
+-        struct is_ndarray_int : std::false_type
+-        {
+-        };
+-
+-        //============================================================================
+-        // Class Description:
+-        /// Template class for determining if dtype is a valid index typefor NdArray
+-        ///
+-
+-        template<typename dtype, typename Allocator>
+-        struct is_ndarray_int<NdArray<dtype, Allocator>>
+-        {
+-            static constexpr bool value = std::is_integral_v<dtype>;
+-        };
+-
+-        //============================================================================
+-        // Class Description:
+-        /// is_ndarray_int helper
+-        ///
+-        template<typename T>
+-        constexpr bool is_ndarray_int_v = is_ndarray_int<T>::value;
+-
+-        //============================================================================
+-        // Class Description:
+-        /// Template class for determining if dtype is an unsigned integer type
+-        ///
+-        template<typename>
+-        struct is_ndarray_signed_int : std::false_type
+-        {
+-        };
+-
+-        //============================================================================
+-        // Class Description:
+-        /// Template class for determining if dtype is an unsigned integer type
+-        ///
+-
+-        template<typename dtype, typename Allocator>
+-        struct is_ndarray_signed_int<NdArray<dtype, Allocator>>
+-        {
+-            static constexpr bool value = std::is_signed_v<dtype>;
+-        };
+-
+-        //============================================================================
+-        // Class Description:
+-        /// is_ndarray_int helper
+-        ///
+-        template<typename T>
+-        constexpr bool is_ndarray_signed_int_v = is_ndarray_signed_int<T>::value;
+-
+-        //============================================================================
+-        // Class Description:
+-        /// is_ndarray_int
+-        ///
+-        template<typename T>
+-        using ndarray_int_concept = std::enable_if_t<is_ndarray_int_v<T>, int>;
+-    } // namespace type_traits
+-
+     //================================================================================
+     // Class Description:
+     /// Holds 1D and 2D arrays, the main work horse of the NumCpp library
+@@ -270,7 +207,7 @@ namespace nc
+         /// @param inArray
+         /// @param policy: the policy to use the pointer, copy or non-owning shell. default copy
+         ///
+-        template<size_t ArraySize, std::enable_if_t<is_valid_dtype_v<dtype>, int> = 0>
++        template<size_t ArraySize> requires ValidDtype<dtype>
+         NdArray(std::array<dtype, ArraySize>& inArray, PointerPolicy policy = PointerPolicy::COPY) :
+             shape_{ 1, static_cast<uint32>(ArraySize) },
+             size_{ shape_.size() }
+@@ -307,8 +244,9 @@ namespace nc
+         /// @param policy: the policy to use the pointer, copy or non-owning shell. default copy
+         ///
+         template<size_t Dim0Size, size_t Dim1Size>
++        requires ValidDtype<dtype>
+         NdArray(std::array<std::array<dtype, Dim1Size>, Dim0Size>& in2dArray,
+-                PointerPolicy                                      policy = PointerPolicy::COPY) :
++                PointerPolicy policy = PointerPolicy::COPY) :
+             shape_{ static_cast<uint32>(Dim0Size), static_cast<uint32>(Dim1Size) },
+             size_{ shape_.size() }
+         {
+@@ -344,8 +282,9 @@ namespace nc
+         /// @param inVector
+         /// @param policy: the policy to use the pointer, copy or non-owning shell. default copy
+         ///
+-        template<std::enable_if_t<is_valid_dtype_v<dtype>, int> = 0>
+-        NdArray(std::vector<dtype>& inVector, PointerPolicy policy = PointerPolicy::COPY) :
++        NdArray(std::vector<dtype>& inVector, PointerPolicy policy = PointerPolicy::COPY)
++        requires ValidDtype<dtype>
++        :
+             shape_{ 1, static_cast<uint32>(inVector.size()) },
+             size_{ shape_.size() }
+         {
+@@ -413,6 +352,7 @@ namespace nc
+         /// @param policy: the policy to use the pointer, copy or non-owning shell. default copy
+         ///
+         template<size_t Dim1Size>
++        requires ValidDtype<dtype>
+         NdArray(std::vector<std::array<dtype, Dim1Size>>& in2dArray, PointerPolicy policy = PointerPolicy::COPY) :
+             shape_{ static_cast<uint32>(in2dArray.size()), static_cast<uint32>(Dim1Size) },
+             size_{ shape_.size() }
+@@ -448,8 +388,9 @@ namespace nc
+         ///
+         /// @param inDeque
+         ///
+-        template<std::enable_if_t<is_valid_dtype_v<dtype>, int> = 0>
+-        explicit NdArray(const std::deque<dtype>& inDeque) :
++        explicit NdArray(const std::deque<dtype>& inDeque)
++        requires ValidDtype<dtype>
++        :
+             shape_{ 1, static_cast<uint32>(inDeque.size()) },
+             size_{ shape_.size() }
+         {
+@@ -516,8 +457,8 @@ namespace nc
+         /// @param inFirst
+         /// @param inLast
+         ///
+-        template<typename Iterator,
+-                 std::enable_if_t<std::is_same_v<typename std::iterator_traits<Iterator>::value_type, dtype>, int> = 0>
++        template<typename Iterator>
++        requires std::is_same_v<typename std::iterator_traits<Iterator>::value_type, dtype> && ValidDtype<dtype>
+         NdArray(Iterator inFirst, Iterator inLast) :
+             shape_{ 1, static_cast<uint32>(std::distance(inFirst, inLast)) },
+             size_{ shape_.size() }
+@@ -536,8 +477,8 @@ namespace nc
+         /// @param inPtr: pointer to beginning of buffer
+         /// @param size: number of elements in buffer
+         ///
+-        template<typename UIntType,
+-                 std::enable_if_t<std::is_integral_v<UIntType> && !std::is_same_v<UIntType, bool>, int> = 0>
++        template<std::integral UIntType>
++        requires (!std::is_same_v<UIntType, bool>) && ValidDtype<dtype>
+         NdArray(const_pointer inPtr, UIntType size) :
+             NdArray(inPtr, 1, size)
+         {
+@@ -551,10 +492,8 @@ namespace nc
+         /// @param numRows: number of rows of the buffer
+         /// @param numCols: number of cols of the buffer
+         ///
+-        template<typename UIntType1,
+-                 typename UIntType2,
+-                 std::enable_if_t<std::is_integral_v<UIntType1> && !std::is_same_v<UIntType1, bool>, int> = 0,
+-                 std::enable_if_t<std::is_integral_v<UIntType2> && !std::is_same_v<UIntType2, bool>, int> = 0>
++        template<std::integral UIntType1, std::integral UIntType2>
++        requires (!std::is_same_v<UIntType1, bool> && !std::is_same_v<UIntType2, bool>) && ValidDtype<dtype>
+         NdArray(const_pointer inPtr, UIntType1 numRows, UIntType2 numCols) :
+             shape_(numRows, numCols),
+             size_{ shape_.size() }
+@@ -575,8 +514,8 @@ namespace nc
+         /// @param size: number of elements in buffer
+         /// @param policy: the policy to use the pointer, copy or non-owning shell. default copy
+         ///
+-        template<typename UIntType,
+-                 std::enable_if_t<std::is_integral_v<UIntType> && !std::is_same_v<UIntType, bool>, int> = 0>
++        template<std::integral UIntType>
++        requires (!std::is_same_v<UIntType, bool>) && ValidDtype<dtype>
+         NdArray(pointer inPtr, UIntType size, PointerPolicy policy) :
+             NdArray(inPtr, 1, size, policy)
+         {
+@@ -592,10 +531,8 @@ namespace nc
+         /// @param numCols: number of cols of the buffer
+         /// @param policy: the policy to use the pointer, copy or non-owning shell
+         ///
+-        template<typename UIntType1,
+-                 typename UIntType2,
+-                 std::enable_if_t<std::is_integral_v<UIntType1> && !std::is_same_v<UIntType1, bool>, int> = 0,
+-                 std::enable_if_t<std::is_integral_v<UIntType2> && !std::is_same_v<UIntType2, bool>, int> = 0>
++        template<std::integral UIntType1, std::integral UIntType2>
++        requires (!std::is_same_v<UIntType1, bool> && !std::is_same_v<UIntType2, bool>) && ValidDtype<dtype>
+         NdArray(pointer inPtr, UIntType1 numRows, UIntType2 numCols, PointerPolicy policy) :
+             shape_(numRows, numCols),
+             size_{ shape_.size() }
+@@ -845,7 +782,7 @@ namespace nc
+         /// @return NdArray
+         ///
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type operator[](const Indices& inIndices) const
+         {
+             auto      outArray = self_type(1, static_cast<size_type>(inIndices.size()));
+@@ -911,7 +848,7 @@ namespace nc
+         /// @param colIndex
+         /// @return NdArray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type operator()(const Indices& rowIndices, index_type colIndex) const
+         {
+             const NdArray<index_type> colIndices = { colIndex };
+@@ -927,7 +864,7 @@ namespace nc
+         /// @param colSlice
+         /// @return NdArray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type operator()(const Indices& rowIndices, Slice colSlice) const
+         {
+             return operator()(rowIndices, toIndices(colSlice, Axis::COL));
+@@ -942,7 +879,7 @@ namespace nc
+         /// @param colIndices
+         /// @return NdArray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type operator()(index_type rowIndex, const Indices& colIndices) const
+         {
+             const NdArray<index_type> rowIndices = { rowIndex };
+@@ -958,7 +895,7 @@ namespace nc
+         /// @param colIndices
+         /// @return NdArray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type operator()(Slice rowSlice, const Indices& colIndices) const
+         {
+             return operator()(toIndices(rowSlice, Axis::ROW), colIndices);
+@@ -973,10 +910,7 @@ namespace nc
+         /// @param colIndices
+         /// @return NdArray
+         ///
+-        template<typename RowIndices,
+-                 typename ColIndices,
+-                 type_traits::ndarray_int_concept<RowIndices> = 0,
+-                 type_traits::ndarray_int_concept<ColIndices> = 0>
++        template<NdArrayInt RowIndices, NdArrayInt ColIndices>
+         [[nodiscard]] self_type operator()(const RowIndices& rowIndices, const ColIndices& colIndices) const
+         {
+             self_type returnArray(rowIndices.size(), colIndices.size());
+@@ -1137,7 +1071,7 @@ namespace nc
+         /// @param inIndices
+         /// @return Ndarray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type at(const Indices& inIndices) const
+         {
+             stl_algorithms::for_each(inIndices.begin(),
+@@ -1208,7 +1142,7 @@ namespace nc
+         /// @param colIndex
+         /// @return Ndarray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type at(const Indices& rowIndices, index_type colIndex) const
+         {
+             const NdArray<index_type> colIndices = { colIndex };
+@@ -1223,7 +1157,7 @@ namespace nc
+         /// @param colSlice
+         /// @return Ndarray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type at(const Indices& rowIndices, Slice colSlice) const
+         {
+             return at(rowIndices, toIndices(colSlice, Axis::COL));
+@@ -1237,7 +1171,7 @@ namespace nc
+         /// @param colIndices
+         /// @return Ndarray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type at(index_type rowIndex, const Indices& colIndices) const
+         {
+             const NdArray<index_type> rowIndices = { rowIndex };
+@@ -1252,7 +1186,7 @@ namespace nc
+         /// @param colIndices
+         /// @return Ndarray
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         [[nodiscard]] self_type at(Slice rowSlice, const Indices& colIndices) const
+         {
+             return at(toIndices(rowSlice, Axis::ROW), colIndices);
+@@ -1266,10 +1200,7 @@ namespace nc
+         /// @param colIndices
+         /// @return Ndarray
+         ///
+-        template<typename RowIndices,
+-                 typename ColIndices,
+-                 type_traits::ndarray_int_concept<RowIndices> = 0,
+-                 type_traits::ndarray_int_concept<ColIndices> = 0>
++        template<NdArrayInt RowIndices, NdArrayInt ColIndices>
+         [[nodiscard]] self_type at(const RowIndices& rowIndices, const ColIndices& colIndices) const
+         {
+             stl_algorithms::for_each(rowIndices.begin(),
+@@ -2249,11 +2180,9 @@ namespace nc
+         ///
+         /// @return NdArray
+         ///
+-        template<typename dtypeOut,
+-                 typename dtype_                                       = dtype,
+-                 std::enable_if_t<std::is_same_v<dtype_, dtype>, int>  = 0,
+-                 std::enable_if_t<std::is_arithmetic_v<dtype_>, int>   = 0,
+-                 std::enable_if_t<std::is_arithmetic_v<dtypeOut>, int> = 0>
++        template<ValidDtype dtypeOut,
++                 typename dtype_ = dtype>
++        requires std::is_same_v<dtype_, dtype> && std::is_arithmetic_v<dtype_> && std::is_arithmetic_v<dtypeOut>
+         [[nodiscard]] NdArray<dtypeOut> astype() const
+         {
+             if constexpr (std::is_same_v<dtypeOut, dtype>)
+@@ -2281,11 +2210,9 @@ namespace nc
+         ///
+         /// @return NdArray
+         ///
+-        template<typename dtypeOut,
+-                 typename dtype_                                      = dtype,
+-                 std::enable_if_t<std::is_same_v<dtype_, dtype>, int> = 0,
+-                 std::enable_if_t<std::is_arithmetic_v<dtype_>, int>  = 0,
+-                 std::enable_if_t<is_complex_v<dtypeOut>, int>        = 0>
++        template<ValidDtype dtypeOut,
++                 typename dtype_ = dtype>
++        requires std::is_same_v<dtype_, dtype> && std::is_arithmetic_v<dtype_> && IsComplex<dtypeOut>
+         [[nodiscard]] NdArray<dtypeOut> astype() const
+         {
+             NdArray<dtypeOut> outArray(shape_);
+@@ -2307,11 +2234,9 @@ namespace nc
+         ///
+         /// @return NdArray
+         ///
+-        template<typename dtypeOut,
+-                 typename dtype_                                      = dtype,
+-                 std::enable_if_t<std::is_same_v<dtype_, dtype>, int> = 0,
+-                 std::enable_if_t<is_complex_v<dtype_>, int>          = 0,
+-                 std::enable_if_t<is_complex_v<dtypeOut>, int>        = 0>
++        template<ValidDtype dtypeOut,
++                 typename dtype_ = dtype>
++        requires std::is_same_v<dtype_, dtype> && IsComplex<dtype_> && IsComplex<dtypeOut>
+         [[nodiscard]] NdArray<dtypeOut> astype() const
+         {
+             if constexpr (std::is_same_v<dtypeOut, dtype>)
+@@ -2338,11 +2263,9 @@ namespace nc
+         ///
+         /// @return NdArray
+         ///
+-        template<typename dtypeOut,
+-                 typename dtype_                                       = dtype,
+-                 std::enable_if_t<std::is_same_v<dtype_, dtype>, int>  = 0,
+-                 std::enable_if_t<is_complex_v<dtype_>, int>           = 0,
+-                 std::enable_if_t<std::is_arithmetic_v<dtypeOut>, int> = 0>
++        template<ValidDtype dtypeOut,
++                 typename dtype_ = dtype>
++        requires std::is_same_v<dtype_, dtype> && IsComplex<dtype_> && std::is_arithmetic_v<dtypeOut>
+         [[nodiscard]] NdArray<dtypeOut> astype() const
+         {
+             NdArray<dtypeOut> outArray(shape_);
+@@ -3800,7 +3723,7 @@ namespace nc
+         /// @param inValue
+         /// @return reference to self
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         self_type& put(const Indices& inIndices, const value_type& inValue)
+         {
+             for (auto index : inIndices)
+@@ -3821,7 +3744,7 @@ namespace nc
+         /// @param inValues
+         /// @return reference to self
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         self_type& put(const Indices& inIndices, const self_type& inValues)
+         {
+             if (inValues.isscalar())
+@@ -3883,10 +3806,7 @@ namespace nc
+         /// @param inValue
+         /// @return reference to self
+         ///
+-        template<typename RowIndices,
+-                 typename ColIndices,
+-                 type_traits::ndarray_int_concept<RowIndices> = 0,
+-                 type_traits::ndarray_int_concept<ColIndices> = 0>
++        template<NdArrayInt RowIndices, NdArrayInt ColIndices>
+         self_type& put(const RowIndices& inRowIndices, const ColIndices& inColIndices, const value_type& inValue)
+         {
+             stl_algorithms::for_each(inRowIndices.begin(),
+@@ -3913,7 +3833,7 @@ namespace nc
+         /// @param inValue
+         /// @return reference to self
+         ///
+-        template<typename RowIndices, type_traits::ndarray_int_concept<RowIndices> = 0>
++        template<NdArrayInt RowIndices>
+         self_type& put(const RowIndices& inRowIndices, const Slice& inColSlice, const value_type& inValue)
+         {
+             return put(inRowIndices, toIndices(inColSlice, Axis::COL), inValue);
+@@ -3930,7 +3850,7 @@ namespace nc
+         /// @param inValue
+         /// @return reference to self
+         ///
+-        template<typename ColIndices, type_traits::ndarray_int_concept<ColIndices> = 0>
++        template<NdArrayInt ColIndices>
+         self_type& put(const Slice& inRowSlice, const ColIndices& inColIndices, const value_type& inValue)
+         {
+             return put(toIndices(inRowSlice, Axis::ROW), inColIndices, inValue);
+@@ -3963,7 +3883,7 @@ namespace nc
+         /// @param inValue
+         /// @return reference to self
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         self_type& put(const Indices& inRowIndices, index_type inColIndex, const value_type& inValue)
+         {
+             const NdArray<index_type> colIndices = { inColIndex };
+@@ -3998,7 +3918,7 @@ namespace nc
+         /// @param inValue
+         /// @return reference to self
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         self_type& put(index_type inRowIndex, const Indices& inColIndices, const value_type& inValue)
+         {
+             const NdArray<index_type> rowIndices = { inRowIndex };
+@@ -4033,10 +3953,7 @@ namespace nc
+         /// @param inValues
+         /// @return reference to self
+         ///
+-        template<typename RowIndices,
+-                 typename ColIndices,
+-                 type_traits::ndarray_int_concept<RowIndices> = 0,
+-                 type_traits::ndarray_int_concept<ColIndices> = 0>
++        template<NdArrayInt RowIndices, NdArrayInt ColIndices>
+         self_type& put(const RowIndices& inRowIndices, const ColIndices& inColIndices, const self_type& inValues)
+         {
+             std::vector<size_type> indices;
+@@ -4092,7 +4009,7 @@ namespace nc
+         /// @param inValues
+         /// @return reference to self
+         ///
+-        template<typename RowIndices, type_traits::ndarray_int_concept<RowIndices> = 0>
++        template<NdArrayInt RowIndices>
+         self_type& put(const RowIndices& inRowIndices, Slice inColSlice, const self_type& inValues)
+         {
+             return put(inRowIndices, toIndices(inColSlice, Axis::COL), inValues);
+@@ -4109,7 +4026,7 @@ namespace nc
+         /// @param inValues
+         /// @return reference to self
+         ///
+-        template<typename ColIndices, type_traits::ndarray_int_concept<ColIndices> = 0>
++        template<NdArrayInt ColIndices>
+         self_type& put(Slice inRowSlice, const ColIndices& inColIndices, const self_type& inValues)
+         {
+             return put(toIndices(inRowSlice, Axis::ROW), inColIndices, inValues);
+@@ -4142,7 +4059,7 @@ namespace nc
+         /// @param inValues
+         /// @return reference to self
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         self_type& put(const Indices& inRowIndices, index_type inColIndex, const self_type& inValues)
+         {
+             const NdArray<index_type> colIndices = { inColIndex };
+@@ -4177,7 +4094,7 @@ namespace nc
+         /// @param inValues
+         /// @return reference to self
+         ///
+-        template<typename Indices, type_traits::ndarray_int_concept<Indices> = 0>
++        template<NdArrayInt Indices>
+         self_type& put(index_type inRowIndex, const Indices& inColIndices, const self_type& inValues)
+         {
+             const NdArray<index_type> rowIndices = { inRowIndex };
+diff --git a/include/NumCpp/NdArray/NdArrayOperators.hpp b/include/NumCpp/NdArray/NdArrayOperators.hpp
+index 66ba14db1..bee220ae5 100644
+--- a/include/NumCpp/NdArray/NdArrayOperators.hpp
++++ b/include/NumCpp/NdArray/NdArrayOperators.hpp
+@@ -36,7 +36,6 @@
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+ #include "NumCpp/Core/Internal/StdComplexOperators.hpp"
+ #include "NumCpp/Core/Internal/StlAlgorithms.hpp"
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
+ #include "NumCpp/Functions/complex.hpp"
+ #include "NumCpp/NdArray/NdArrayBroadcast.hpp"
+ #include "NumCpp/NdArray/NdArrayCore.hpp"
+@@ -207,13 +206,9 @@ namespace nc
+     NdArray<std::complex<dtype>> operator+(const NdArray<dtype>& lhs, const std::complex<dtype>& rhs)
+     {
+         STATIC_ASSERT_ARITHMETIC(dtype);
+-
+-        const auto function = [rhs](dtype value) -> std::complex<dtype> { return value + rhs; };
+-
+         NdArray<std::complex<dtype>> returnArray(lhs.shape());
+-
++        const auto function = [rhs](dtype value) -> std::complex<dtype> { return value + rhs; };
+         stl_algorithms::transform(lhs.cbegin(), lhs.cend(), returnArray.begin(), function);
+-
+         return returnArray;
+     }
+ 
+@@ -433,13 +428,9 @@ namespace nc
+     NdArray<std::complex<dtype>> operator-(const NdArray<dtype>& lhs, const std::complex<dtype>& rhs)
+     {
+         STATIC_ASSERT_ARITHMETIC(dtype);
+-
+-        const auto function = [rhs](dtype value) -> std::complex<dtype> { return value - rhs; };
+-
+         NdArray<std::complex<dtype>> returnArray(lhs.shape());
+-
++        const auto function = [rhs](dtype value) -> std::complex<dtype> { return value - rhs; };
+         stl_algorithms::transform(lhs.cbegin(), lhs.cend(), returnArray.begin(), function);
+-
+         return returnArray;
+     }
+ 
+@@ -455,13 +446,9 @@ namespace nc
+     NdArray<std::complex<dtype>> operator-(const std::complex<dtype>& lhs, const NdArray<dtype>& rhs)
+     {
+         STATIC_ASSERT_ARITHMETIC(dtype);
+-
+-        const auto function = [lhs](dtype value) -> std::complex<dtype> { return lhs - value; };
+-
+         NdArray<std::complex<dtype>> returnArray(rhs.shape());
+-
++        const auto function = [lhs](dtype value) -> std::complex<dtype> { return lhs - value; };
+         stl_algorithms::transform(rhs.cbegin(), rhs.cend(), returnArray.begin(), function);
+-
+         return returnArray;
+     }
+ 
+@@ -493,7 +480,7 @@ namespace nc
+     {
+         STATIC_ASSERT_ARITHMETIC(dtype);
+ 
+-        const auto function = [lhs](std::complex<dtype> value) -> std::complex<dtype> { return lhs - value; };
++        const auto function = [lhs](const std::complex<dtype>& value) -> std::complex<dtype> { return lhs - value; };
+ 
+         NdArray<std::complex<dtype>> returnArray(rhs.shape());
+ 
+@@ -983,7 +970,8 @@ namespace nc
+     /// @param rhs
+     /// @return NdArray
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype> || std::is_floating_point_v<dtype>, int> = 0>
++    template<typename dtype>
++    requires std::integral<dtype> || std::floating_point<dtype>
+     NdArray<dtype>& operator%=(NdArray<dtype>& lhs, const NdArray<dtype>& rhs)
+     {
+         if constexpr (std::is_integral_v<dtype>)
+@@ -1006,7 +994,8 @@ namespace nc
+     /// @param rhs
+     /// @return NdArray
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype> || std::is_floating_point_v<dtype>, int> = 0>
++    template<typename dtype>
++    requires std::integral<dtype> || std::floating_point<dtype>
+     NdArray<dtype>& operator%=(NdArray<dtype>& lhs, dtype rhs)
+     {
+         if constexpr (std::is_integral_v<dtype>)
+@@ -1031,7 +1020,8 @@ namespace nc
+     /// @param rhs
+     /// @return NdArray
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype> || std::is_floating_point_v<dtype>, int> = 0>
++    template<typename dtype>
++    requires std::integral<dtype> || std::floating_point<dtype>
+     NdArray<dtype> operator%(const NdArray<dtype>& lhs, const NdArray<dtype>& rhs)
+     {
+         if constexpr (std::is_integral_v<dtype>)
+@@ -1068,7 +1058,7 @@ namespace nc
+     /// @param rhs
+     /// @return NdArray
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype>, int> = 0>
++    template<std::integral dtype>
+     NdArray<dtype> operator%(dtype lhs, const NdArray<dtype>& rhs)
+     {
+         NdArray<dtype> returnArray(rhs.shape());
+@@ -1088,7 +1078,7 @@ namespace nc
+     /// @param rhs
+     /// @return NdArray
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_floating_point_v<dtype>, int> = 0>
++    template<std::floating_point dtype>
+     NdArray<dtype> operator%(dtype lhs, const NdArray<dtype>& rhs)
+     {
+         NdArray<dtype> returnArray(rhs.shape());
+diff --git a/include/NumCpp/Random/binomial.hpp b/include/NumCpp/Random/binomial.hpp
+index 9d391f17a..84ea7b995 100644
+--- a/include/NumCpp/Random/binomial.hpp
++++ b/include/NumCpp/Random/binomial.hpp
+@@ -36,6 +36,7 @@
+ #include "NumCpp/Core/Shape.hpp"
+ #include "NumCpp/NdArray.hpp"
+ #include "NumCpp/Random/generator.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::random
+ {
+@@ -56,8 +57,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         dtype binomial(GeneratorType& generator, dtype inN, double inP = 0.5)
+         {
+-            STATIC_ASSERT_INTEGER(dtype);
+-
+             if (inN < 0)
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input number of trials must be greater than or equal to zero.");
+@@ -89,8 +88,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         NdArray<dtype> binomial(GeneratorType& generator, const Shape& inShape, dtype inN, double inP = 0.5)
+         {
+-            STATIC_ASSERT_INTEGER(dtype);
+-
+             if (inN < 0)
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input number of trials must be greater than or equal to zero.");
+@@ -124,7 +121,7 @@ namespace nc::random
+     /// @param inP (probablity of success [0, 1])
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     dtype binomial(dtype inN, double inP = 0.5)
+     {
+         return detail::binomial(generator_, inN, inP);
+@@ -143,7 +140,7 @@ namespace nc::random
+     /// @param inP (probablity of success [0, 1])
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     NdArray<dtype> binomial(const Shape& inShape, dtype inN, double inP = 0.5)
+     {
+         return detail::binomial(generator_, inShape, inN, inP);
+diff --git a/include/NumCpp/Random/discrete.hpp b/include/NumCpp/Random/discrete.hpp
+index 07843d6d9..e3cc400a3 100644
+--- a/include/NumCpp/Random/discrete.hpp
++++ b/include/NumCpp/Random/discrete.hpp
+@@ -35,6 +35,7 @@
+ #include "NumCpp/Core/Shape.hpp"
+ #include "NumCpp/NdArray.hpp"
+ #include "NumCpp/Random/generator.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::random
+ {
+@@ -100,7 +101,7 @@ namespace nc::random
+     /// @param inWeights
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     dtype discrete(const NdArray<double>& inWeights)
+     {
+         return detail::discrete<dtype>(generator_, inWeights);
+@@ -118,7 +119,7 @@ namespace nc::random
+     /// @param inWeights
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     NdArray<dtype> discrete(const Shape& inShape, const NdArray<double>& inWeights)
+     {
+         return detail::discrete<dtype>(generator_, inShape, inWeights);
+diff --git a/include/NumCpp/Random/geometric.hpp b/include/NumCpp/Random/geometric.hpp
+index f4c0b64d9..9867c3daa 100644
+--- a/include/NumCpp/Random/geometric.hpp
++++ b/include/NumCpp/Random/geometric.hpp
+@@ -36,6 +36,7 @@
+ #include "NumCpp/Core/Shape.hpp"
+ #include "NumCpp/NdArray.hpp"
+ #include "NumCpp/Random/generator.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::random
+ {
+@@ -55,8 +56,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         dtype geometric(GeneratorType& generator, double inP = 0.5)
+         {
+-            STATIC_ASSERT_INTEGER(dtype);
+-
+             if (inP < 0 || inP > 1)
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input probability of sucess must be of the range [0, 1].");
+@@ -82,8 +81,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         NdArray<dtype> geometric(GeneratorType& generator, const Shape& inShape, double inP = 0.5)
+         {
+-            STATIC_ASSERT_INTEGER(dtype);
+-
+             if (inP < 0 || inP > 1)
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input probability of sucess must be of the range [0, 1].");
+@@ -111,7 +108,7 @@ namespace nc::random
+     /// @param inP (probablity of success [0, 1])
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     dtype geometric(double inP = 0.5)
+     {
+         return detail::geometric<dtype>(generator_, inP);
+@@ -129,7 +126,7 @@ namespace nc::random
+     /// @param inP (probablity of success [0, 1])
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     NdArray<dtype> geometric(const Shape& inShape, double inP = 0.5)
+     {
+         return detail::geometric<dtype>(generator_, inShape, inP);
+diff --git a/include/NumCpp/Random/negativeBinomial.hpp b/include/NumCpp/Random/negativeBinomial.hpp
+index 25cbd989d..bca81baaa 100644
+--- a/include/NumCpp/Random/negativeBinomial.hpp
++++ b/include/NumCpp/Random/negativeBinomial.hpp
+@@ -36,6 +36,7 @@
+ #include "NumCpp/Core/Shape.hpp"
+ #include "NumCpp/NdArray.hpp"
+ #include "NumCpp/Random/generator.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::random
+ {
+@@ -56,8 +57,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         dtype negativeBinomial(GeneratorType& generator, dtype inN, double inP = 0.5)
+         {
+-            STATIC_ASSERT_INTEGER(dtype);
+-
+             if (inN < 0)
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input number of trials must be greater than or equal to zero.");
+@@ -89,8 +88,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         NdArray<dtype> negativeBinomial(GeneratorType& generator, const Shape& inShape, dtype inN, double inP = 0.5)
+         {
+-            STATIC_ASSERT_INTEGER(dtype);
+-
+             if (inN < 0)
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input number of trials must be greater than or equal to zero.");
+@@ -124,7 +121,7 @@ namespace nc::random
+     /// @param inP: probablity of success [0, 1]
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     dtype negativeBinomial(dtype inN, double inP = 0.5)
+     {
+         return detail::negativeBinomial(generator_, inN, inP);
+@@ -143,7 +140,7 @@ namespace nc::random
+     /// @param inP: probablity of success [0, 1]
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     NdArray<dtype> negativeBinomial(const Shape& inShape, dtype inN, double inP = 0.5)
+     {
+         return detail::negativeBinomial(generator_, inShape, inN, inP);
+diff --git a/include/NumCpp/Random/randFloat.hpp b/include/NumCpp/Random/randFloat.hpp
+index f3665f28f..f54153a92 100644
+--- a/include/NumCpp/Random/randFloat.hpp
++++ b/include/NumCpp/Random/randFloat.hpp
+@@ -38,6 +38,7 @@
+ #include "NumCpp/NdArray.hpp"
+ #include "NumCpp/Random/generator.hpp"
+ #include "NumCpp/Utils/essentiallyEqual.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::random
+ {
+@@ -60,8 +61,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         dtype randFloat(GeneratorType& generator, dtype inLow, dtype inHigh = 0.)
+         {
+-            STATIC_ASSERT_FLOAT(dtype);
+-
+             if (utils::essentiallyEqual(inLow, inHigh))
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input low value must be less than the input high value.");
+@@ -93,8 +92,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         NdArray<dtype> randFloat(GeneratorType& generator, const Shape& inShape, dtype inLow, dtype inHigh = 0.)
+         {
+-            STATIC_ASSERT_FLOAT(dtype);
+-
+             if (utils::essentiallyEqual(inLow, inHigh))
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input low value must be less than the input high value.");
+@@ -129,7 +126,7 @@ namespace nc::random
+     /// @param inHigh default 0.
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Float dtype>
+     dtype randFloat(dtype inLow, dtype inHigh = 0.)
+     {
+         return detail::randFloat(generator_, inLow, inHigh);
+@@ -149,7 +146,7 @@ namespace nc::random
+     /// @param inHigh default 0.
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Float dtype>
+     NdArray<dtype> randFloat(const Shape& inShape, dtype inLow, dtype inHigh = 0.)
+     {
+         return detail::randFloat(generator_, inShape, inLow, inHigh);
+diff --git a/include/NumCpp/Random/randInt.hpp b/include/NumCpp/Random/randInt.hpp
+index 5c2bbe4de..611e14212 100644
+--- a/include/NumCpp/Random/randInt.hpp
++++ b/include/NumCpp/Random/randInt.hpp
+@@ -38,6 +38,7 @@
+ #include "NumCpp/Core/Shape.hpp"
+ #include "NumCpp/NdArray.hpp"
+ #include "NumCpp/Random/generator.hpp"
++#include "NumCpp/Core/Internal/Concepts.hpp"
+ 
+ namespace nc::random
+ {
+@@ -60,8 +61,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         dtype randInt(GeneratorType& generator, dtype inLow, dtype inHigh = 0)
+         {
+-            STATIC_ASSERT_INTEGER(dtype);
+-
+             if (inLow == inHigh)
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input low value must be less than the input high value.");
+@@ -93,8 +92,6 @@ namespace nc::random
+         template<typename dtype, typename GeneratorType = std::mt19937>
+         NdArray<dtype> randInt(GeneratorType& generator, const Shape& inShape, dtype inLow, dtype inHigh = 0)
+         {
+-            STATIC_ASSERT_INTEGER(dtype);
+-
+             if (inLow == inHigh)
+             {
+                 THROW_INVALID_ARGUMENT_ERROR("input low value must be less than the input high value.");
+@@ -129,7 +126,7 @@ namespace nc::random
+     /// @param inHigh default 0.
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     dtype randInt(dtype inLow, dtype inHigh = 0)
+     {
+         return detail::randInt(generator_, inLow, inHigh);
+@@ -149,7 +146,7 @@ namespace nc::random
+     /// @param inHigh default 0.
+     /// @return NdArray
+     ///
+-    template<typename dtype>
++    template<nc::Integer dtype>
+     NdArray<dtype> randInt(const Shape& inShape, dtype inLow, dtype inHigh = 0)
+     {
+         return detail::randInt(generator_, inShape, inLow, inHigh);
+diff --git a/include/NumCpp/Rotations/wahbasProblem.hpp b/include/NumCpp/Rotations/wahbasProblem.hpp
+index 4fcf74b79..25f002c26 100644
+--- a/include/NumCpp/Rotations/wahbasProblem.hpp
++++ b/include/NumCpp/Rotations/wahbasProblem.hpp
+@@ -61,7 +61,7 @@ namespace nc::rotations
+     template<typename dtype>
+     NdArray<double> wahbasProblem(const NdArray<dtype>& wk, const NdArray<dtype>& vk, const NdArray<dtype>& ak)
+     {
+-        STATIC_ASSERT_ARITHMETIC(dtype);
++        static_assert(nc::Arithmetic<dtype>, "Can only be used with arithmetic types");
+ 
+         const auto wkShape = wk.shape();
+         if (wkShape.cols != 3)
+diff --git a/include/NumCpp/Utils/essentiallyEqual.hpp b/include/NumCpp/Utils/essentiallyEqual.hpp
+index 1a2dd2b15..5e72ecb12 100644
+--- a/include/NumCpp/Utils/essentiallyEqual.hpp
++++ b/include/NumCpp/Utils/essentiallyEqual.hpp
+@@ -32,7 +32,6 @@
+ #include <string>
+ 
+ #include "NumCpp/Core/DtypeInfo.hpp"
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
+ 
+ namespace nc::utils
+ {
+@@ -45,7 +44,7 @@ namespace nc::utils
+     ///
+     /// @return bool
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral<dtype>::value, int> = 0>
++    template<std::integral dtype>
+     bool essentiallyEqual(dtype inValue1, dtype inValue2) noexcept
+     {
+         return inValue1 == inValue2;
+@@ -61,7 +60,7 @@ namespace nc::utils
+     ///
+     /// @return bool
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_floating_point<dtype>::value, int> = 0>
++    template<std::floating_point dtype>
+     bool essentiallyEqual(dtype inValue1, dtype inValue2, dtype inEpsilon) noexcept
+     {
+         const auto absValue1 = std::abs(inValue1);
+@@ -78,7 +77,7 @@ namespace nc::utils
+     ///
+     /// @return bool
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_floating_point<dtype>::value, int> = 0>
++    template<std::floating_point dtype>
+     bool essentiallyEqual(dtype inValue1, dtype inValue2) noexcept
+     {
+         return essentiallyEqual(inValue1, inValue2, DtypeInfo<dtype>::epsilon());
+diff --git a/include/NumCpp/Utils/essentiallyEqualComplex.hpp b/include/NumCpp/Utils/essentiallyEqualComplex.hpp
+index 3c1ad47df..ad7d4cbc6 100644
+--- a/include/NumCpp/Utils/essentiallyEqualComplex.hpp
++++ b/include/NumCpp/Utils/essentiallyEqualComplex.hpp
+@@ -33,7 +33,6 @@
+ 
+ #include "NumCpp/Core/DtypeInfo.hpp"
+ #include "NumCpp/Core/Internal/StdComplexOperators.hpp"
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
+ 
+ namespace nc::utils
+ {
+@@ -45,7 +44,7 @@ namespace nc::utils
+     ///
+     /// @return bool
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_integral<dtype>::value, int> = 0>
++    template<std::integral dtype>
+     bool essentiallyEqual(const std::complex<dtype>& inValue1, const std::complex<dtype>& inValue2) noexcept
+     {
+         return inValue1 == inValue2;
+@@ -60,7 +59,7 @@ namespace nc::utils
+     ///
+     /// @return bool
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_floating_point<dtype>::value, int> = 0>
++    template<std::floating_point dtype>
+     bool essentiallyEqual(const std::complex<dtype>& inValue1,
+                           const std::complex<dtype>& inValue2,
+                           const std::complex<dtype>& inEpsilon) noexcept
+@@ -78,7 +77,7 @@ namespace nc::utils
+     ///
+     /// @return bool
+     ///
+-    template<typename dtype, std::enable_if_t<std::is_floating_point<dtype>::value, int> = 0>
++    template<std::floating_point dtype>
+     bool essentiallyEqual(const std::complex<dtype>& inValue1, const std::complex<dtype>& inValue2) noexcept
+     {
+         return essentiallyEqual(inValue1, inValue2, DtypeInfo<std::complex<dtype>>::epsilon());
+diff --git a/include/NumCpp/Utils/powerf.hpp b/include/NumCpp/Utils/powerf.hpp
+index 73e36e6cf..35e41bbbd 100644
+--- a/include/NumCpp/Utils/powerf.hpp
++++ b/include/NumCpp/Utils/powerf.hpp
+@@ -31,7 +31,6 @@
+ #include <complex>
+ 
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
+ 
+ namespace nc::utils
+ {

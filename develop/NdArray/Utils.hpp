@@ -8,7 +8,7 @@
 
 #include "NumCpp/Utils.hpp"
 
-namespace nc_develop
+namespace nc
 {
     namespace utils
     {
@@ -33,4 +33,4 @@ namespace nc_develop
             return returnStr;
         }
     } // namespace utils
-} // namespace nc_develop
+} // namespace nc
