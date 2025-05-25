@@ -33,7 +33,6 @@
 
 #include "NumCpp/Core/DtypeInfo.hpp"
 #include "NumCpp/Core/Internal/StdComplexOperators.hpp"
-#include "NumCpp/Core/Internal/TypeTraits.hpp"
 
 namespace nc::utils
 {
@@ -45,7 +44,7 @@ namespace nc::utils
     ///
     /// @return bool
     ///
-    template<typename dtype, std::enable_if_t<std::is_integral<dtype>::value, int> = 0>
+    template<std::integral dtype>
     bool essentiallyEqual(const std::complex<dtype>& inValue1, const std::complex<dtype>& inValue2) noexcept
     {
         return inValue1 == inValue2;
@@ -60,7 +59,7 @@ namespace nc::utils
     ///
     /// @return bool
     ///
-    template<typename dtype, std::enable_if_t<std::is_floating_point<dtype>::value, int> = 0>
+    template<std::floating_point dtype>
     bool essentiallyEqual(const std::complex<dtype>& inValue1,
                           const std::complex<dtype>& inValue2,
                           const std::complex<dtype>& inEpsilon) noexcept
@@ -78,7 +77,7 @@ namespace nc::utils
     ///
     /// @return bool
     ///
-    template<typename dtype, std::enable_if_t<std::is_floating_point<dtype>::value, int> = 0>
+    template<std::floating_point dtype>
     bool essentiallyEqual(const std::complex<dtype>& inValue1, const std::complex<dtype>& inValue2) noexcept
     {
         return essentiallyEqual(inValue1, inValue2, DtypeInfo<std::complex<dtype>>::epsilon());

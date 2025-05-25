@@ -36,7 +36,6 @@
 #include "NumCpp/Core/Internal/StaticAsserts.hpp"
 #include "NumCpp/Core/Internal/StdComplexOperators.hpp"
 #include "NumCpp/Core/Internal/StlAlgorithms.hpp"
-#include "NumCpp/Core/Internal/TypeTraits.hpp"
 #include "NumCpp/Functions/complex.hpp"
 #include "NumCpp/NdArray/NdArrayBroadcast.hpp"
 #include "NumCpp/NdArray/NdArrayCore.hpp"
@@ -207,13 +206,9 @@ namespace nc
     NdArray<std::complex<dtype>> operator+(const NdArray<dtype>& lhs, const std::complex<dtype>& rhs)
     {
         STATIC_ASSERT_ARITHMETIC(dtype);
-
-        const auto function = [rhs](dtype value) -> std::complex<dtype> { return value + rhs; };
-
         NdArray<std::complex<dtype>> returnArray(lhs.shape());
-
+        const auto function = [rhs](dtype value) -> std::complex<dtype> { return value + rhs; };
         stl_algorithms::transform(lhs.cbegin(), lhs.cend(), returnArray.begin(), function);
-
         return returnArray;
     }
 
@@ -433,13 +428,9 @@ namespace nc
     NdArray<std::complex<dtype>> operator-(const NdArray<dtype>& lhs, const std::complex<dtype>& rhs)
     {
         STATIC_ASSERT_ARITHMETIC(dtype);
-
-        const auto function = [rhs](dtype value) -> std::complex<dtype> { return value - rhs; };
-
         NdArray<std::complex<dtype>> returnArray(lhs.shape());
-
+        const auto function = [rhs](dtype value) -> std::complex<dtype> { return value - rhs; };
         stl_algorithms::transform(lhs.cbegin(), lhs.cend(), returnArray.begin(), function);
-
         return returnArray;
     }
 
@@ -455,13 +446,9 @@ namespace nc
     NdArray<std::complex<dtype>> operator-(const std::complex<dtype>& lhs, const NdArray<dtype>& rhs)
     {
         STATIC_ASSERT_ARITHMETIC(dtype);
-
-        const auto function = [lhs](dtype value) -> std::complex<dtype> { return lhs - value; };
-
         NdArray<std::complex<dtype>> returnArray(rhs.shape());
-
+        const auto function = [lhs](dtype value) -> std::complex<dtype> { return lhs - value; };
         stl_algorithms::transform(rhs.cbegin(), rhs.cend(), returnArray.begin(), function);
-
         return returnArray;
     }
 
@@ -493,7 +480,7 @@ namespace nc
     {
         STATIC_ASSERT_ARITHMETIC(dtype);
 
-        const auto function = [lhs](std::complex<dtype> value) -> std::complex<dtype> { return lhs - value; };
+        const auto function = [lhs](const std::complex<dtype>& value) -> std::complex<dtype> { return lhs - value; };
 
         NdArray<std::complex<dtype>> returnArray(rhs.shape());
 
@@ -983,7 +970,8 @@ namespace nc
     /// @param rhs
     /// @return NdArray
     ///
-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype> || std::is_floating_point_v<dtype>, int> = 0>
+    template<typename dtype>
+    requires std::integral<dtype> || std::floating_point<dtype>
     NdArray<dtype>& operator%=(NdArray<dtype>& lhs, const NdArray<dtype>& rhs)
     {
         if constexpr (std::is_integral_v<dtype>)
@@ -1006,7 +994,8 @@ namespace nc
     /// @param rhs
     /// @return NdArray
     ///
-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype> || std::is_floating_point_v<dtype>, int> = 0>
+    template<typename dtype>
+    requires std::integral<dtype> || std::floating_point<dtype>
     NdArray<dtype>& operator%=(NdArray<dtype>& lhs, dtype rhs)
     {
         if constexpr (std::is_integral_v<dtype>)
@@ -1031,7 +1020,8 @@ namespace nc
     /// @param rhs
     /// @return NdArray
     ///
-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype> || std::is_floating_point_v<dtype>, int> = 0>
+    template<typename dtype>
+    requires std::integral<dtype> || std::floating_point<dtype>
     NdArray<dtype> operator%(const NdArray<dtype>& lhs, const NdArray<dtype>& rhs)
     {
         if constexpr (std::is_integral_v<dtype>)
@@ -1068,7 +1058,7 @@ namespace nc
     /// @param rhs
     /// @return NdArray
     ///
-    template<typename dtype, std::enable_if_t<std::is_integral_v<dtype>, int> = 0>
+    template<std::integral dtype>
     NdArray<dtype> operator%(dtype lhs, const NdArray<dtype>& rhs)
     {
         NdArray<dtype> returnArray(rhs.shape());
@@ -1088,7 +1078,7 @@ namespace nc
     /// @param rhs
     /// @return NdArray
     ///
-    template<typename dtype, std::enable_if_t<std::is_floating_point_v<dtype>, int> = 0>
+    template<std::floating_point dtype>
     NdArray<dtype> operator%(dtype lhs, const NdArray<dtype>& rhs)
     {
         NdArray<dtype> returnArray(rhs.shape());
