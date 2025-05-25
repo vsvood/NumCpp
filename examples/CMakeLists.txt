@@ -17,3 +17,6 @@ if (BUILD_EXAMPLE_README)
     message(STATUS "Configuring ReadMe")
     add_subdirectory(ReadMe)
 endif()
+
+add_executable(NdArrayRanges NdArrayRanges.cpp)
+target_link_libraries(NdArrayRanges PRIVATE NumCpp)

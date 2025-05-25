@@ -32,6 +32,7 @@
 #pragma once
 
 #include <functional>
+#include <ranges>
 
 #include "NumCpp/Core/Types.hpp"
 
@@ -56,11 +57,9 @@ namespace nc::integrate
         const double width = (high - low) / static_cast<double>(n);
 
         double trapezoidal_integral = 0.;
-        for (uint32 step = 0; step < n; ++step)
-        {
+        for (uint32 step : std::views::iota(uint32{0}, n)) {
             const double x1 = low + static_cast<double>(step) * width;
             const double x2 = low + static_cast<double>(step + 1) * width;
-
             trapezoidal_integral += 0.5 * (x2 - x1) * (f(x1) + f(x2));
         }
 

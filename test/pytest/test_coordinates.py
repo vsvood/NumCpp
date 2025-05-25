@@ -1197,3 +1197,12 @@ def test_NEDtoLLA():
     np.testing.assert_approx_equal(lla.latitude, lat1, 5)
     np.testing.assert_approx_equal(lla.longitude, lon1, 5)
     np.testing.assert_approx_equal(lla.altitude, alt1, 5)
+
+
+####################################################################################
+def test_cartesian_normalize_all():
+    points = [NumCpp.Cartesian(3, 0, 0), NumCpp.Cartesian(0, 4, 0), NumCpp.Cartesian(0, 0, 5)]
+    # Use the new normalize_all utility (exposed via pybind11 or similar)
+    normalized = list(NumCpp.normalize_all(points))
+    for n in normalized:
+        assert np.isclose(NumCpp.norm(n), 1.0)

@@ -29,6 +29,7 @@
 
 #include <complex>
 #include <string>
+#include <ranges>
 
 #include "NumCpp/Core/Internal/Error.hpp"
 #include "NumCpp/Core/Internal/StaticAsserts.hpp"
@@ -104,24 +105,37 @@ namespace nc
 
                 double          weightSum = inWeights.template astype<double>().sum().item();
                 NdArray<double> returnArray(1, arrayShape.rows);
-                for (uint32 row = 0; row < arrayShape.rows; ++row)
-                {
+                auto rows = std::views::iota(uint32{0}, arrayShape.rows);
+                std::ranges::for_each(rows, [&](uint32 row) {
                     NdArray<double> weightedArray(1, arrayShape.cols);
                     stl_algorithms::transform(inArray.cbegin(row),
                                               inArray.cend(row),
                                               inWeights.cbegin(),
                                               weightedArray.begin(),
                                               std::multiplies<double>()); // NOLINT(modernize-use-transparent-functors)
-
                     double sum          = std::accumulate(weightedArray.begin(), weightedArray.end(), 0.);
                     returnArray(0, row) = sum / weightSum;
-                }
-
+                });
                 return returnArray;
             }
             case Axis::ROW:
             {
-                return average(inArray.transpose(), inWeights, Axis::COL);
+                auto transposed = inArray.transpose();
+                const Shape arrayShape = transposed.shape();
+                double weightSum = inWeights.template astype<double>().sum().item();
+                NdArray<double> returnArray(1, arrayShape.rows);
+                auto rows = std::views::iota(uint32{0}, arrayShape.rows);
+                std::ranges::for_each(rows, [&](uint32 row) {
+                    NdArray<double> weightedArray(1, arrayShape.cols);
+                    stl_algorithms::transform(transposed.cbegin(row),
+                                              transposed.cend(row),
+                                              inWeights.cbegin(),
+                                              weightedArray.begin(),
+                                              std::multiplies<double>()); // NOLINT(modernize-use-transparent-functors)
+                    double sum          = std::accumulate(weightedArray.begin(), weightedArray.end(), 0.);
+                    returnArray(0, row) = sum / weightSum;
+                });
+                return returnArray;
             }
             default:
             {
@@ -183,25 +197,39 @@ namespace nc
 
                 double                        weightSum = inWeights.template astype<double>().sum().item();
                 NdArray<std::complex<double>> returnArray(1, arrayShape.rows);
-                for (uint32 row = 0; row < arrayShape.rows; ++row)
-                {
+                auto rows = std::views::iota(uint32{0}, arrayShape.rows);
+                std::ranges::for_each(rows, [&](uint32 row) {
                     NdArray<std::complex<double>> weightedArray(1, arrayShape.cols);
                     stl_algorithms::transform(inArray.cbegin(row),
                                               inArray.cend(row),
                                               inWeights.cbegin(),
                                               weightedArray.begin(),
                                               multiplies);
-
                     const std::complex<double> sum =
                         std::accumulate(weightedArray.begin(), weightedArray.end(), std::complex<double>(0.));
                     returnArray(0, row) = sum / weightSum;
-                }
-
+                });
                 return returnArray;
             }
             case Axis::ROW:
             {
-                return average(inArray.transpose(), inWeights, Axis::COL);
+                auto transposed = inArray.transpose();
+                const Shape arrayShape = transposed.shape();
+                double weightSum = inWeights.template astype<double>().sum().item();
+                NdArray<std::complex<double>> returnArray(1, arrayShape.rows);
+                auto rows = std::views::iota(uint32{0}, arrayShape.rows);
+                std::ranges::for_each(rows, [&](uint32 row) {
+                    NdArray<std::complex<double>> weightedArray(1, arrayShape.cols);
+                    stl_algorithms::transform(transposed.cbegin(row),
+                                              transposed.cend(row),
+                                              inWeights.cbegin(),
+                                              weightedArray.begin(),
+                                              multiplies);
+                    const std::complex<double> sum =
+                        std::accumulate(weightedArray.begin(), weightedArray.end(), std::complex<double>(0.));
+                    returnArray(0, row) = sum / weightSum;
+                });
+                return returnArray;
             }
             default:
             {

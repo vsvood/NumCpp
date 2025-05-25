@@ -317,4 +317,8 @@ void initCoordinates(pb11::module& m)
           [](const coordinates::reference_frames::NED& target, const coordinates::reference_frames::LLA& referencePoint)
           { return coordinates::transforms::NEDtoLLA(target, referencePoint); });
     m.def("NEDUnitVecsInECEF", &coordinates::transforms::NEDUnitVecsInECEF);
+    m.def("normalize_all", [](const std::vector<coordinates::Cartesian>& points) {
+        auto normed = coordinates::normalize_all(points);
+        return std::vector<coordinates::Cartesian>(normed.begin(), normed.end());
+    });
 }

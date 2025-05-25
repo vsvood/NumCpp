@@ -33,6 +33,7 @@
 
 #include <functional>
 #include <vector>
+#include <ranges>
 
 #include "NumCpp/Core/Types.hpp"
 #include "NumCpp/Integrate/trapazoidal.hpp"
@@ -67,11 +68,11 @@ namespace nc::integrate
             // R(step, 0) Improve trapezoidal integration with decreasing h
             double       trapezoidal_integration = 0.;
             const uint32 stepEnd                 = utils::power(2, step - 1);
-            for (uint32 tzStep = 1; tzStep <= stepEnd; ++tzStep)
-            {
+            auto tzSteps = std::views::iota(uint32{1}, stepEnd + 1);
+            std::ranges::for_each(tzSteps, [&](uint32 tzStep) {
                 const double deltaX = (2. * static_cast<double>(tzStep - 1)) * h;
                 trapezoidal_integration += f(low + deltaX);
-            }
+            });
 
             rombergIntegral(step, 0) = 0.5 * rombergIntegral(step - 1, 0);
             rombergIntegral(step, 0) += trapezoidal_integration * h;

@@ -40,8 +40,6 @@
 
 #include "boost/dynamic_bitset.hpp"
 
-#include "NumCpp/Core/Internal/TypeTraits.hpp"
-
 namespace nc::edac
 {
     namespace detail

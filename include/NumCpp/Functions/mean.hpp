@@ -29,6 +29,7 @@
 
 #include <complex>
 #include <numeric>
+#include <ranges>
 
 #include "NumCpp/Core/Internal/StaticAsserts.hpp"
 #include "NumCpp/Core/Shape.hpp"
@@ -65,17 +66,23 @@ namespace nc
             case Axis::COL:
             {
                 NdArray<double> returnArray(1, inArray.numRows());
-                for (uint32 row = 0; row < inArray.numRows(); ++row)
-                {
+                auto rows = std::views::iota(uint32{0}, inArray.numRows());
+                std::ranges::for_each(rows, [&](uint32 row) {
                     auto sum            = std::accumulate(inArray.cbegin(row), inArray.cend(row), 0.);
                     returnArray(0, row) = sum / static_cast<double>(inArray.numCols());
-                }
-
+                });
                 return returnArray;
             }
             case Axis::ROW:
             {
-                return mean(inArray.transpose(), Axis::COL);
+                auto transposed = inArray.transpose();
+                NdArray<double> returnArray(1, transposed.numRows());
+                auto rows = std::views::iota(uint32{0}, transposed.numRows());
+                std::ranges::for_each(rows, [&](uint32 row) {
+                    auto sum            = std::accumulate(transposed.cbegin(row), transposed.cend(row), 0.);
+                    returnArray(0, row) = sum / static_cast<double>(transposed.numCols());
+                });
+                return returnArray;
             }
             default:
             {
@@ -113,26 +120,22 @@ namespace nc
             case Axis::COL:
             {
                 NdArray<std::complex<double>> returnArray(1, inArray.numRows());
-                for (uint32 row = 0; row < inArray.numRows(); ++row)
-                {
+                auto rows = std::views::iota(uint32{0}, inArray.numRows());
+                std::ranges::for_each(rows, [&](uint32 row) {
                     auto sum = std::accumulate(inArray.cbegin(row), inArray.cend(row), std::complex<double>(0.));
                     returnArray(0, row) = sum / std::complex<double>(inArray.numCols());
-                }
-
+                });
                 return returnArray;
             }
             case Axis::ROW:
             {
-                NdArray<std::complex<double>> transposedArray = inArray.transpose();
-                NdArray<std::complex<double>> returnArray(1, transposedArray.numRows());
-                for (uint32 row = 0; row < transposedArray.numRows(); ++row)
-                {
-                    auto sum            = std::accumulate(transposedArray.cbegin(row),
-                                               transposedArray.cend(row),
-                                               std::complex<double>(0.));
-                    returnArray(0, row) = sum / std::complex<double>(transposedArray.numCols());
-                }
-
+                auto transposed = inArray.transpose();
+                NdArray<std::complex<double>> returnArray(1, transposed.numRows());
+                auto rows = std::views::iota(uint32{0}, transposed.numRows());
+                std::ranges::for_each(rows, [&](uint32 row) {
+                    auto sum = std::accumulate(transposed.cbegin(row), transposed.cend(row), std::complex<double>(0.));
+                    returnArray(0, row) = sum / std::complex<double>(transposed.numCols());
+                });
                 return returnArray;
             }
             default:

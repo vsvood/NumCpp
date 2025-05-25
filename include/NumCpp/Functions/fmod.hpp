@@ -32,7 +32,6 @@
 
 #include "NumCpp/Core/Internal/Error.hpp"
 #include "NumCpp/Core/Internal/StlAlgorithms.hpp"
-#include "NumCpp/Core/Internal/TypeTraits.hpp"
 #include "NumCpp/NdArray.hpp"
 
 namespace nc

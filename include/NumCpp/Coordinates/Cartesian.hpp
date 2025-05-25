@@ -29,6 +29,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <ranges>
 
 #include "NumCpp/NdArray.hpp"
 #include "NumCpp/Utils/essentiallyEqual.hpp"
@@ -318,5 +319,21 @@ namespace nc::coordinates
     [[nodiscard]] inline double angle(const Cartesian& vec1, const Cartesian& vec2) noexcept
     {
         return std::acos(normalize(vec1) * normalize(vec2));
+    }
+
+    // C++20 concept for coordinate types
+    template<typename T>
+    concept Coordinate3D = requires(T t) {
+        { t.x } -> std::convertible_to<double>;
+        { t.y } -> std::convertible_to<double>;
+        { t.z } -> std::convertible_to<double>;
+    };
+
+    // C++20 ranges-based batch normalization utility
+    template<std::ranges::input_range Range>
+    requires Coordinate3D<std::ranges::range_value_t<Range>>
+    auto normalize_all(const Range& points)
+    {
+        return points | std::views::transform([](const auto& pt) { return normalize(pt); });
     }
 } // namespace nc::coordinates
