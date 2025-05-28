@@ -1,0 +1,558 @@
+diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
+index 361e82683..09fb36001 100644
+--- a/examples/CMakeLists.txt
++++ b/examples/CMakeLists.txt
+@@ -17,3 +17,6 @@ if (BUILD_EXAMPLE_README)
+     message(STATUS "Configuring ReadMe")
+     add_subdirectory(ReadMe)
+ endif()
++
++add_executable(NdArrayRanges NdArrayRanges.cpp)
++target_link_libraries(NdArrayRanges PRIVATE NumCpp)
+diff --git a/examples/NdArrayRanges.cpp b/examples/NdArrayRanges.cpp
+new file mode 100644
+index 000000000..6fc509d61
+--- /dev/null
++++ b/examples/NdArrayRanges.cpp
+@@ -0,0 +1,36 @@
++// Example: NdArray usage with std::ranges
++#include <iostream>
++#include <ranges>
++#include "NumCpp/NdArray.hpp"
++
++int main() {
++    // Create a 1D NdArray
++    nc::NdArray<int> arr = {1, 2, 3, 4, 5};
++    std::cout << "Original NdArray: ";
++    for (auto v : arr) std::cout << v << ' ';
++    std::cout << '\n';
++
++    // Use std::ranges::for_each to increment each element
++    std::ranges::for_each(arr, [](int& v) { v += 10; });
++    std::cout << "After std::ranges::for_each (+10): ";
++    for (auto v : arr) std::cout << v << ' ';
++    std::cout << '\n';
++
++    // Use std::ranges::transform_view to create a view of squares
++    auto squares = arr | std::views::transform([](int v) { return v * v; });
++    std::cout << "Squares (transform_view): ";
++    for (auto v : squares) std::cout << v << ' ';
++    std::cout << '\n';
++
++    // Use std::ranges::reverse_view
++    auto reversed = arr | std::views::reverse;
++    std::cout << "Reversed: ";
++    for (auto v : reversed) std::cout << v << ' ';
++    std::cout << '\n';
++
++    // Check if NdArray satisfies std::ranges::range
++    constexpr bool is_range = std::ranges::range<nc::NdArray<int>>;
++    std::cout << "NdArray<int> is std::ranges::range: " << std::boolalpha << is_range << '\n';
++
++    return 0;
++} 
+\ No newline at end of file
+diff --git a/include/NumCpp/Coordinates/Cartesian.hpp b/include/NumCpp/Coordinates/Cartesian.hpp
+index 381b74460..1d67d45ec 100644
+--- a/include/NumCpp/Coordinates/Cartesian.hpp
++++ b/include/NumCpp/Coordinates/Cartesian.hpp
+@@ -29,6 +29,7 @@
+ 
+ #include <cmath>
+ #include <iostream>
++#include <ranges>
+ 
+ #include "NumCpp/NdArray.hpp"
+ #include "NumCpp/Utils/essentiallyEqual.hpp"
+@@ -319,4 +320,20 @@ namespace nc::coordinates
+     {
+         return std::acos(normalize(vec1) * normalize(vec2));
+     }
++
++    // C++20 concept for coordinate types
++    template<typename T>
++    concept Coordinate3D = requires(T t) {
++        { t.x } -> std::convertible_to<double>;
++        { t.y } -> std::convertible_to<double>;
++        { t.z } -> std::convertible_to<double>;
++    };
++
++    // C++20 ranges-based batch normalization utility
++    template<std::ranges::input_range Range>
++    requires Coordinate3D<std::ranges::range_value_t<Range>>
++    auto normalize_all(const Range& points)
++    {
++        return points | std::views::transform([](const auto& pt) { return normalize(pt); });
++    }
+ } // namespace nc::coordinates
+diff --git a/include/NumCpp/Core/DataCube.hpp b/include/NumCpp/Core/DataCube.hpp
+index b7f38a884..14724b8ac 100644
+--- a/include/NumCpp/Core/DataCube.hpp
++++ b/include/NumCpp/Core/DataCube.hpp
+@@ -31,6 +31,7 @@
+ #include <limits>
+ #include <string>
+ #include <vector>
++#include <ranges>
+ 
+ #include "NumCpp/Core/Internal/Error.hpp"
+ #include "NumCpp/Core/Shape.hpp"
+@@ -273,10 +274,10 @@ namespace nc
+ 
+             NdArray<dtype> returnArray(1, sizeZ());
+ 
+-            for (uint32 i = 0; i < sizeZ(); ++i)
+-            {
++            auto indices = std::views::iota(uint32{0}, sizeZ());
++            std::ranges::for_each(indices, [&](uint32 i) {
+                 returnArray[i] = cube_[i][inIndex];
+-            }
++            });
+ 
+             return returnArray;
+         }
+@@ -327,10 +328,10 @@ namespace nc
+ 
+             NdArray<dtype> returnArray(1, sizeZ());
+ 
+-            for (uint32 i = 0; i < sizeZ(); ++i)
+-            {
++            auto indices = std::views::iota(uint32{0}, sizeZ());
++            std::ranges::for_each(indices, [&](uint32 i) {
+                 returnArray[i] = cube_[i](inRow, inCol);
+-            }
++            });
+ 
+             return returnArray;
+         }
+diff --git a/include/NumCpp/Filter/Filters/Filters1d/meanFilter1d.hpp b/include/NumCpp/Filter/Filters/Filters1d/meanFilter1d.hpp
+index a8b22d83c..c4d4968be 100644
+--- a/include/NumCpp/Filter/Filters/Filters1d/meanFilter1d.hpp
++++ b/include/NumCpp/Filter/Filters/Filters1d/meanFilter1d.hpp
+@@ -33,6 +33,7 @@
+ #include "NumCpp/Filter/Boundaries/Boundary.hpp"
+ #include "NumCpp/Functions/mean.hpp"
+ #include "NumCpp/NdArray.hpp"
++#include <ranges>
+ 
+ namespace nc::filter
+ {
+@@ -59,12 +60,11 @@ namespace nc::filter
+         const uint32 boundarySize = inSize / 2; // integer division
+         const uint32 endPoint     = boundarySize + inImageArray.size();
+ 
+-        for (uint32 i = boundarySize; i < endPoint; ++i)
+-        {
++        auto indices = std::views::iota(boundarySize, endPoint);
++        std::ranges::for_each(indices, [&](uint32 i) {
+             NdArray<dtype> window = arrayWithBoundary[Slice(i - boundarySize, i + boundarySize + 1)];
+-
+             output[i - boundarySize] = mean(window).item();
+-        }
++        });
+ 
+         return output;
+     }
+diff --git a/include/NumCpp/Functions/average.hpp b/include/NumCpp/Functions/average.hpp
+index 8767fb472..f1aaa3c50 100644
+--- a/include/NumCpp/Functions/average.hpp
++++ b/include/NumCpp/Functions/average.hpp
+@@ -29,6 +29,7 @@
+ 
+ #include <complex>
+ #include <string>
++#include <ranges>
+ 
+ #include "NumCpp/Core/Internal/Error.hpp"
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+@@ -104,24 +105,37 @@ namespace nc
+ 
+                 double          weightSum = inWeights.template astype<double>().sum().item();
+                 NdArray<double> returnArray(1, arrayShape.rows);
+-                for (uint32 row = 0; row < arrayShape.rows; ++row)
+-                {
++                auto rows = std::views::iota(uint32{0}, arrayShape.rows);
++                std::ranges::for_each(rows, [&](uint32 row) {
+                     NdArray<double> weightedArray(1, arrayShape.cols);
+                     stl_algorithms::transform(inArray.cbegin(row),
+                                               inArray.cend(row),
+                                               inWeights.cbegin(),
+                                               weightedArray.begin(),
+                                               std::multiplies<double>()); // NOLINT(modernize-use-transparent-functors)
+-
+                     double sum          = std::accumulate(weightedArray.begin(), weightedArray.end(), 0.);
+                     returnArray(0, row) = sum / weightSum;
+-                }
+-
++                });
+                 return returnArray;
+             }
+             case Axis::ROW:
+             {
+-                return average(inArray.transpose(), inWeights, Axis::COL);
++                auto transposed = inArray.transpose();
++                const Shape arrayShape = transposed.shape();
++                double weightSum = inWeights.template astype<double>().sum().item();
++                NdArray<double> returnArray(1, arrayShape.rows);
++                auto rows = std::views::iota(uint32{0}, arrayShape.rows);
++                std::ranges::for_each(rows, [&](uint32 row) {
++                    NdArray<double> weightedArray(1, arrayShape.cols);
++                    stl_algorithms::transform(transposed.cbegin(row),
++                                              transposed.cend(row),
++                                              inWeights.cbegin(),
++                                              weightedArray.begin(),
++                                              std::multiplies<double>()); // NOLINT(modernize-use-transparent-functors)
++                    double sum          = std::accumulate(weightedArray.begin(), weightedArray.end(), 0.);
++                    returnArray(0, row) = sum / weightSum;
++                });
++                return returnArray;
+             }
+             default:
+             {
+@@ -183,25 +197,39 @@ namespace nc
+ 
+                 double                        weightSum = inWeights.template astype<double>().sum().item();
+                 NdArray<std::complex<double>> returnArray(1, arrayShape.rows);
+-                for (uint32 row = 0; row < arrayShape.rows; ++row)
+-                {
++                auto rows = std::views::iota(uint32{0}, arrayShape.rows);
++                std::ranges::for_each(rows, [&](uint32 row) {
+                     NdArray<std::complex<double>> weightedArray(1, arrayShape.cols);
+                     stl_algorithms::transform(inArray.cbegin(row),
+                                               inArray.cend(row),
+                                               inWeights.cbegin(),
+                                               weightedArray.begin(),
+                                               multiplies);
+-
+                     const std::complex<double> sum =
+                         std::accumulate(weightedArray.begin(), weightedArray.end(), std::complex<double>(0.));
+                     returnArray(0, row) = sum / weightSum;
+-                }
+-
++                });
+                 return returnArray;
+             }
+             case Axis::ROW:
+             {
+-                return average(inArray.transpose(), inWeights, Axis::COL);
++                auto transposed = inArray.transpose();
++                const Shape arrayShape = transposed.shape();
++                double weightSum = inWeights.template astype<double>().sum().item();
++                NdArray<std::complex<double>> returnArray(1, arrayShape.rows);
++                auto rows = std::views::iota(uint32{0}, arrayShape.rows);
++                std::ranges::for_each(rows, [&](uint32 row) {
++                    NdArray<std::complex<double>> weightedArray(1, arrayShape.cols);
++                    stl_algorithms::transform(transposed.cbegin(row),
++                                              transposed.cend(row),
++                                              inWeights.cbegin(),
++                                              weightedArray.begin(),
++                                              multiplies);
++                    const std::complex<double> sum =
++                        std::accumulate(weightedArray.begin(), weightedArray.end(), std::complex<double>(0.));
++                    returnArray(0, row) = sum / weightSum;
++                });
++                return returnArray;
+             }
+             default:
+             {
+diff --git a/include/NumCpp/Functions/fmod.hpp b/include/NumCpp/Functions/fmod.hpp
+index 70e2fbbc8..d143bcc0b 100644
+--- a/include/NumCpp/Functions/fmod.hpp
++++ b/include/NumCpp/Functions/fmod.hpp
+@@ -32,7 +32,6 @@
+ 
+ #include "NumCpp/Core/Internal/Error.hpp"
+ #include "NumCpp/Core/Internal/StlAlgorithms.hpp"
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
+ #include "NumCpp/NdArray.hpp"
+ 
+ namespace nc
+diff --git a/include/NumCpp/Functions/hammingEncode.hpp b/include/NumCpp/Functions/hammingEncode.hpp
+index cbe14b8ac..fa699d477 100644
+--- a/include/NumCpp/Functions/hammingEncode.hpp
++++ b/include/NumCpp/Functions/hammingEncode.hpp
+@@ -40,8 +40,6 @@
+ 
+ #include "boost/dynamic_bitset.hpp"
+ 
+-#include "NumCpp/Core/Internal/TypeTraits.hpp"
+-
+ namespace nc::edac
+ {
+     namespace detail
+diff --git a/include/NumCpp/Functions/mean.hpp b/include/NumCpp/Functions/mean.hpp
+index 7528a757c..2111ec2d3 100644
+--- a/include/NumCpp/Functions/mean.hpp
++++ b/include/NumCpp/Functions/mean.hpp
+@@ -29,6 +29,7 @@
+ 
+ #include <complex>
+ #include <numeric>
++#include <ranges>
+ 
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+ #include "NumCpp/Core/Shape.hpp"
+@@ -65,17 +66,23 @@ namespace nc
+             case Axis::COL:
+             {
+                 NdArray<double> returnArray(1, inArray.numRows());
+-                for (uint32 row = 0; row < inArray.numRows(); ++row)
+-                {
++                auto rows = std::views::iota(uint32{0}, inArray.numRows());
++                std::ranges::for_each(rows, [&](uint32 row) {
+                     auto sum            = std::accumulate(inArray.cbegin(row), inArray.cend(row), 0.);
+                     returnArray(0, row) = sum / static_cast<double>(inArray.numCols());
+-                }
+-
++                });
+                 return returnArray;
+             }
+             case Axis::ROW:
+             {
+-                return mean(inArray.transpose(), Axis::COL);
++                auto transposed = inArray.transpose();
++                NdArray<double> returnArray(1, transposed.numRows());
++                auto rows = std::views::iota(uint32{0}, transposed.numRows());
++                std::ranges::for_each(rows, [&](uint32 row) {
++                    auto sum            = std::accumulate(transposed.cbegin(row), transposed.cend(row), 0.);
++                    returnArray(0, row) = sum / static_cast<double>(transposed.numCols());
++                });
++                return returnArray;
+             }
+             default:
+             {
+@@ -113,26 +120,22 @@ namespace nc
+             case Axis::COL:
+             {
+                 NdArray<std::complex<double>> returnArray(1, inArray.numRows());
+-                for (uint32 row = 0; row < inArray.numRows(); ++row)
+-                {
++                auto rows = std::views::iota(uint32{0}, inArray.numRows());
++                std::ranges::for_each(rows, [&](uint32 row) {
+                     auto sum = std::accumulate(inArray.cbegin(row), inArray.cend(row), std::complex<double>(0.));
+                     returnArray(0, row) = sum / std::complex<double>(inArray.numCols());
+-                }
+-
++                });
+                 return returnArray;
+             }
+             case Axis::ROW:
+             {
+-                NdArray<std::complex<double>> transposedArray = inArray.transpose();
+-                NdArray<std::complex<double>> returnArray(1, transposedArray.numRows());
+-                for (uint32 row = 0; row < transposedArray.numRows(); ++row)
+-                {
+-                    auto sum            = std::accumulate(transposedArray.cbegin(row),
+-                                               transposedArray.cend(row),
+-                                               std::complex<double>(0.));
+-                    returnArray(0, row) = sum / std::complex<double>(transposedArray.numCols());
+-                }
+-
++                auto transposed = inArray.transpose();
++                NdArray<std::complex<double>> returnArray(1, transposed.numRows());
++                auto rows = std::views::iota(uint32{0}, transposed.numRows());
++                std::ranges::for_each(rows, [&](uint32 row) {
++                    auto sum = std::accumulate(transposed.cbegin(row), transposed.cend(row), std::complex<double>(0.));
++                    returnArray(0, row) = sum / std::complex<double>(transposed.numCols());
++                });
+                 return returnArray;
+             }
+             default:
+diff --git a/include/NumCpp/Integrate/romberg.hpp b/include/NumCpp/Integrate/romberg.hpp
+index 26a0ca673..7384a73c1 100644
+--- a/include/NumCpp/Integrate/romberg.hpp
++++ b/include/NumCpp/Integrate/romberg.hpp
+@@ -33,6 +33,7 @@
+ 
+ #include <functional>
+ #include <vector>
++#include <ranges>
+ 
+ #include "NumCpp/Core/Types.hpp"
+ #include "NumCpp/Integrate/trapazoidal.hpp"
+@@ -67,11 +68,11 @@ namespace nc::integrate
+             // R(step, 0) Improve trapezoidal integration with decreasing h
+             double       trapezoidal_integration = 0.;
+             const uint32 stepEnd                 = utils::power(2, step - 1);
+-            for (uint32 tzStep = 1; tzStep <= stepEnd; ++tzStep)
+-            {
++            auto tzSteps = std::views::iota(uint32{1}, stepEnd + 1);
++            std::ranges::for_each(tzSteps, [&](uint32 tzStep) {
+                 const double deltaX = (2. * static_cast<double>(tzStep - 1)) * h;
+                 trapezoidal_integration += f(low + deltaX);
+-            }
++            });
+ 
+             rombergIntegral(step, 0) = 0.5 * rombergIntegral(step - 1, 0);
+             rombergIntegral(step, 0) += trapezoidal_integration * h;
+diff --git a/include/NumCpp/Integrate/simpson.hpp b/include/NumCpp/Integrate/simpson.hpp
+index ab655069d..d1f52ec29 100644
+--- a/include/NumCpp/Integrate/simpson.hpp
++++ b/include/NumCpp/Integrate/simpson.hpp
+@@ -32,6 +32,7 @@
+ #pragma once
+ 
+ #include <functional>
++#include <ranges>
+ 
+ #include "NumCpp/Core/Types.hpp"
+ 
+@@ -54,13 +55,12 @@ namespace nc::integrate
+         const double width = (high - low) / static_cast<double>(n);
+ 
+         double simpson_integral = 0.;
+-        for (uint32 step = 0; step < n; ++step)
+-        {
++        auto steps = std::views::iota(uint32{0}, n);
++        std::ranges::for_each(steps, [&](uint32 step) {
+             const double x1 = low + static_cast<double>(step) * width;
+             const double x2 = low + static_cast<double>(step + 1) * width;
+-
+             simpson_integral += (x2 - x1) / 6. * (f(x1) + 4. * f(0.5 * (x1 + x2)) + f(x2));
+-        }
++        });
+ 
+         return simpson_integral;
+     }
+diff --git a/include/NumCpp/Integrate/trapazoidal.hpp b/include/NumCpp/Integrate/trapazoidal.hpp
+index 6cd98d3f7..3d4461077 100644
+--- a/include/NumCpp/Integrate/trapazoidal.hpp
++++ b/include/NumCpp/Integrate/trapazoidal.hpp
+@@ -32,6 +32,7 @@
+ #pragma once
+ 
+ #include <functional>
++#include <ranges>
+ 
+ #include "NumCpp/Core/Types.hpp"
+ 
+@@ -56,11 +57,9 @@ namespace nc::integrate
+         const double width = (high - low) / static_cast<double>(n);
+ 
+         double trapezoidal_integral = 0.;
+-        for (uint32 step = 0; step < n; ++step)
+-        {
++        for (uint32 step : std::views::iota(uint32{0}, n)) {
+             const double x1 = low + static_cast<double>(step) * width;
+             const double x2 = low + static_cast<double>(step + 1) * width;
+-
+             trapezoidal_integral += 0.5 * (x2 - x1) * (f(x1) + f(x2));
+         }
+ 
+diff --git a/include/NumCpp/Linalg/gaussNewtonNlls.hpp b/include/NumCpp/Linalg/gaussNewtonNlls.hpp
+index d74649ddf..c24316adb 100644
+--- a/include/NumCpp/Linalg/gaussNewtonNlls.hpp
++++ b/include/NumCpp/Linalg/gaussNewtonNlls.hpp
+@@ -33,6 +33,7 @@
+ #include <functional>
+ #include <type_traits>
+ #include <utility>
++#include <ranges>
+ 
+ #include "NumCpp/Core/Internal/Error.hpp"
+ #include "NumCpp/Core/Internal/StaticAsserts.hpp"
+@@ -94,22 +95,18 @@ namespace nc::linalg
+         NdArray<double> jacobian(coordinatesShape.rows, sizeof...(Params));
+ 
+         const auto colSlice = coordinates.cSlice();
++        auto meas_indices = std::views::iota(uint32{0}, coordinatesShape.rows);
+         for (uint32 iteration = 1; iteration <= numIterations; ++iteration)
+         {
+-            for (uint32 measIdx = 0; measIdx < coordinatesShape.rows; ++measIdx)
+-            {
++            std::ranges::for_each(meas_indices, [&](uint32 measIdx) {
+                 const auto coordinate = coordinates(measIdx, colSlice);
+-
+-                residuals[measIdx] =
+-                    static_cast<double>(measurements[measIdx]) - static_cast<double>(function(coordinate, beta));
+-
+-                for (uint32 paramIdx = 0; paramIdx < sizeof...(Params); ++paramIdx)
+-                {
+-                    const auto& derivative      = derivatives[paramIdx];
++                residuals[measIdx] = static_cast<double>(measurements[measIdx]) - static_cast<double>(function(coordinate, beta));
++                auto param_indices = std::views::iota(uint32{0}, static_cast<uint32>(sizeof...(Params)));
++                std::ranges::for_each(param_indices, [&](uint32 paramIdx) {
++                    const auto& derivative = derivatives[paramIdx];
+                     jacobian(measIdx, paramIdx) = static_cast<double>(derivative(coordinate, beta));
+-                }
+-            }
+-
++                });
++            });
+             // perform the gauss-newton linear algebra
+             const auto jacobianT             = jacobian.transpose();
+             const auto jacobianPsuedoInverse = linalg::inv(jacobianT.dot(jacobian));
+@@ -119,13 +116,10 @@ namespace nc::linalg
+         }
+ 
+         // calculate the final rms of the residuals
+-        for (uint32 measIdx = 0; measIdx < coordinatesShape.rows; ++measIdx)
+-        {
++        std::ranges::for_each(meas_indices, [&](uint32 measIdx) {
+             const auto coordinate = coordinates(measIdx, colSlice);
+-
+-            residuals[measIdx] =
+-                static_cast<double>(measurements[measIdx]) - static_cast<double>(function(coordinate, beta));
+-        }
++            residuals[measIdx] = static_cast<double>(measurements[measIdx]) - static_cast<double>(function(coordinate, beta));
++        });
+ 
+         return std::make_pair(beta.flatten(), rms(residuals).item());
+     }
+diff --git a/include/NumCpp/Polynomial/Poly1d.hpp b/include/NumCpp/Polynomial/Poly1d.hpp
+index b75090f49..3b2485b43 100644
+--- a/include/NumCpp/Polynomial/Poly1d.hpp
++++ b/include/NumCpp/Polynomial/Poly1d.hpp
+@@ -33,6 +33,7 @@
+ #include <type_traits>
+ #include <utility>
+ #include <vector>
++#include <ranges>
+ 
+ #include "NumCpp/Core/DtypeInfo.hpp"
+ #include "NumCpp/Core/Enums.hpp"
+@@ -167,11 +168,11 @@ namespace nc::polynomial
+ 
+             NdArray<dtype> derivativeCofficients(1, numCoefficients - 1);
+ 
++            auto indices = std::views::iota(uint32{1}, numCoefficients);
+             uint32 counter = 0;
+-            for (uint32 i = 1; i < numCoefficients; ++i)
+-            {
++            std::ranges::for_each(indices, [&](uint32 i) {
+                 derivativeCofficients[counter++] = coefficients_[i] * i;
+-            }
++            });
+ 
+             return Poly1d<dtype>(derivativeCofficients);
+         }
+diff --git a/test/pytest/src/Coordinates.cpp b/test/pytest/src/Coordinates.cpp
+index 8166c007f..14ea223a0 100644
+--- a/test/pytest/src/Coordinates.cpp
++++ b/test/pytest/src/Coordinates.cpp
+@@ -317,4 +317,8 @@ void initCoordinates(pb11::module& m)
+           [](const coordinates::reference_frames::NED& target, const coordinates::reference_frames::LLA& referencePoint)
+           { return coordinates::transforms::NEDtoLLA(target, referencePoint); });
+     m.def("NEDUnitVecsInECEF", &coordinates::transforms::NEDUnitVecsInECEF);
++    m.def("normalize_all", [](const std::vector<coordinates::Cartesian>& points) {
++        auto normed = coordinates::normalize_all(points);
++        return std::vector<coordinates::Cartesian>(normed.begin(), normed.end());
++    });
+ }
+diff --git a/test/pytest/test_coordinates.py b/test/pytest/test_coordinates.py
+index 10e7c611b..bd2a5da36 100644
+--- a/test/pytest/test_coordinates.py
++++ b/test/pytest/test_coordinates.py
+@@ -1197,3 +1197,12 @@ def test_NEDtoLLA():
+     np.testing.assert_approx_equal(lla.latitude, lat1, 5)
+     np.testing.assert_approx_equal(lla.longitude, lon1, 5)
+     np.testing.assert_approx_equal(lla.altitude, alt1, 5)
++
++
++####################################################################################
++def test_cartesian_normalize_all():
++    points = [NumCpp.Cartesian(3, 0, 0), NumCpp.Cartesian(0, 4, 0), NumCpp.Cartesian(0, 0, 5)]
++    # Use the new normalize_all utility (exposed via pybind11 or similar)
++    normalized = list(NumCpp.normalize_all(points))
++    for n in normalized:
++        assert np.isclose(NumCpp.norm(n), 1.0)
